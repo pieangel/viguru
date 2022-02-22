@@ -1,0 +1,190 @@
+object FrmVolTrading: TFrmVolTrading
+  Left = 0
+  Top = 0
+  Caption = 'Vol. Trade'
+  ClientHeight = 101
+  ClientWidth = 263
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  OnCreate = FormCreate
+  DesignSize = (
+    263
+    101)
+  PixelsPerInch = 96
+  TextHeight = 13
+  object plRun: TPanel
+    Left = 0
+    Top = 0
+    Width = 263
+    Height = 29
+    Align = alTop
+    BevelInner = bvLowered
+    ParentBackground = False
+    TabOrder = 0
+    ExplicitWidth = 268
+    object Button1: TButton
+      Left = 237
+      Top = 4
+      Width = 20
+      Height = 21
+      Caption = '..'
+      TabOrder = 0
+      OnClick = Button1Click
+    end
+    object cbInvest: TComboBox
+      Left = 56
+      Top = 4
+      Width = 97
+      Height = 21
+      Style = csDropDownList
+      ImeName = 'Microsoft Office IME 2007'
+      ItemHeight = 13
+      TabOrder = 1
+      OnChange = cbInvestChange
+    end
+    object cbInvestType: TComboBox
+      Left = 5
+      Top = 5
+      Width = 48
+      Height = 21
+      Style = csDropDownList
+      ImeName = 'Microsoft Office IME 2007'
+      ItemHeight = 13
+      ItemIndex = 0
+      TabOrder = 2
+      Text = #44228#51340
+      OnChange = cbInvestTypeChange
+      Items.Strings = (
+        #44228#51340
+        #54144#46300)
+    end
+    object edtSymbol: TLabeledEdit
+      Left = 185
+      Top = 4
+      Width = 48
+      Height = 21
+      EditLabel.Width = 24
+      EditLabel.Height = 13
+      EditLabel.Caption = #51333#47785
+      ImeName = 'Microsoft Office IME 2007'
+      LabelPosition = lpLeft
+      TabOrder = 3
+    end
+  end
+  object edtOrdQty: TLabeledEdit
+    Left = 30
+    Top = 32
+    Width = 25
+    Height = 21
+    EditLabel.Width = 24
+    EditLabel.Height = 13
+    EditLabel.Caption = #49688#47049
+    ImeName = 'Microsoft Office IME 2007'
+    LabelPosition = lpLeft
+    TabOrder = 1
+    Text = '1'
+  end
+  object stTxt: TStatusBar
+    Left = 0
+    Top = 82
+    Width = 263
+    Height = 19
+    Panels = <
+      item
+        Width = 40
+      end
+      item
+        Width = 50
+      end
+      item
+        Width = 50
+      end>
+    ExplicitTop = 68
+    ExplicitWidth = 268
+  end
+  object udOrdQty: TUpDown
+    Left = 55
+    Top = 32
+    Width = 16
+    Height = 21
+    Associate = edtOrdQty
+    Min = 1
+    Position = 1
+    TabOrder = 3
+  end
+  object edtBasePrice: TLabeledEdit
+    Left = 96
+    Top = 32
+    Width = 46
+    Height = 21
+    EditLabel.Width = 12
+    EditLabel.Height = 13
+    EditLabel.Caption = #49345
+    ImeName = 'Microsoft Office IME 2007'
+    LabelPosition = lpLeft
+    TabOrder = 4
+  end
+  object edtOrdGap: TLabeledEdit
+    Left = 30
+    Top = 56
+    Width = 25
+    Height = 21
+    EditLabel.Width = 24
+    EditLabel.Height = 13
+    EditLabel.Caption = #44036#44201
+    ImeName = 'Microsoft Office IME 2007'
+    LabelPosition = lpLeft
+    TabOrder = 5
+  end
+  object edtLiskAmt: TLabeledEdit
+    Left = 175
+    Top = 56
+    Width = 39
+    Height = 21
+    EditLabel.Width = 24
+    EditLabel.Height = 13
+    EditLabel.Caption = #54620#46020
+    ImeName = 'Microsoft Office IME 2007'
+    LabelPosition = lpLeft
+    TabOrder = 6
+  end
+  object Button2: TButton
+    Left = 225
+    Top = 55
+    Width = 30
+    Height = 21
+    Anchors = [akRight]
+    Caption = #51201#50857
+    TabOrder = 7
+    OnClick = Button2Click
+    ExplicitLeft = 224
+    ExplicitTop = 56
+  end
+  object LabeledEdit1: TLabeledEdit
+    Left = 96
+    Top = 56
+    Width = 46
+    Height = 21
+    EditLabel.Width = 12
+    EditLabel.Height = 13
+    EditLabel.Caption = #54616
+    ImeName = 'Microsoft Office IME 2007'
+    LabelPosition = lpLeft
+    TabOrder = 8
+  end
+  object cbRun: TCheckBox
+    Left = 176
+    Top = 33
+    Width = 42
+    Height = 17
+    Anchors = [akTop, akRight]
+    Caption = 'Run'
+    TabOrder = 9
+    ExplicitLeft = 175
+  end
+end

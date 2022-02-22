@@ -1,0 +1,152 @@
+unit CleUnderStrangle;
+
+interface
+
+uses
+  Classes, SysUtils,
+
+  CleSymbols, CleAccounts, CleOrders, ClePositions, CleQuoteBroker, CleFunds, Ticks,
+
+  CleStrategyAccounts,
+
+  CleDistributor,  CleStrangleConfig,
+
+  GleTypes
+  ;
+
+type
+
+  TUnderStrangle = class
+  private
+    FParent: TObject;
+    FOnNotify: TTextNotifyEvent;
+    FParam: TUnderStrangleParam;
+    FPuts: TSymbolList;
+    FCalls: TSymbolList;
+    FStgs: TList;
+    FNowPL: double;
+    FMinPL: double;
+    FMaxPL: double;
+    FIsBegin: boolean;
+    FOrderCnt: integer;
+    FRun: boolean;
+    FLossCut: boolean;
+    FOrdSide: integer;
+    procedure SetParam(const Value: TUnderStrangleParam);
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    function Start : boolean;
+    Procedure Stop;
+
+    function init( aAcnt : TAccount; aObj : TObject ) : boolean; overload;
+    function init( aFund : TFund; aObj : TObject ) : boolean; overload;
+
+    procedure UpdateSymbols( aCalls,  aPuts : TList );
+
+    property Param  : TUnderStrangleParam read FParam write SetParam;
+    property Parent : TObject read FParent write FParent;
+    property Calls  : TSymbolList read FCalls;
+    property Puts   : TSymbolList read FPuts;
+    property Stgs   : TList read FStgs write FStgs;
+
+    property MaxPL : double read FMaxPL;
+    property NowPL : double read FNowPL;
+    property MinPL : double read FMinPL;
+
+    property Run      : boolean read FRun;
+    property LossCut  : boolean read FLossCut;
+    property IsBegin  : boolean read FIsBegin;
+
+    property OrdSide  : integer read FOrdSide;
+    property OrderCnt : integer read FOrderCnt;
+
+    property OnNotify  : TTextNotifyEvent read FOnNotify write FOnNotify;
+  end;
+
+implementation
+
+uses
+  GAppEnv, GleLib
+  ;
+
+{ TUnderStrangle }
+
+constructor TUnderStrangle.Create;
+begin
+  FPuts := TSymbolList.Create;
+  FCalls:= TSymbolList.Create;
+
+  FStgs:= TList.Create;
+end;
+
+destructor TUnderStrangle.Destroy;
+begin
+  FStgs.Free;
+  FPuts.Free;
+  FCalls.Free;
+  inherited;
+end;
+
+function TUnderStrangle.init(aAcnt: TAccount; aObj: TObject): boolean;
+var
+  aItem : TStrangleAccount;
+begin
+  FStgs.Clear;
+  aItem := TStrangleAccount.Create( gEnv.Engine.TradeCore.StrategyGate.GetStrategys,
+    opStrangle2 );
+  aItem.init( aAcnt, 0 );
+  //aItem.OnQuote := OnQuote;
+  FStgs.Add( aItem );
+
+  //aItem.OnText := StgAccountLog;
+
+  FParent := aObj;
+  //Reset;
+
+end;
+
+function TUnderStrangle.init(aFund: TFund; aObj: TObject): boolean;
+begin
+
+end;
+
+procedure TUnderStrangle.SetParam(const Value: TUnderStrangleParam);
+begin
+  FParam := Value;
+end;
+
+function TUnderStrangle.Start: boolean;
+begin
+
+end;
+
+procedure TUnderStrangle.Stop;
+begin
+
+end;
+
+procedure TUnderStrangle.UpdateSymbols(aCalls, aPuts: TList);
+var
+  i : integer;
+  aSymbol : TSymbol;
+begin
+  FPuts.Clear;
+  FCalls.Clear;
+    
+  for I := 0 to aCalls.Count - 1 do
+  begin
+    aSymbol := TSymbol( aCalls.Items[i] );
+    FCalls.AddSymbol( aSymbol );
+  end;
+
+  for I := 0 to aPuts.Count - 1 do
+  begin
+    aSymbol := TSymbol( aPuts.Items[i] );
+    FPuts.AddSymbol( aSymbol );
+  end;                                 
+  
+end;
+
+end.

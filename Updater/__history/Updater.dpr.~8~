@@ -1,0 +1,24 @@
+program Updater;
+
+uses
+  Forms,
+  Unit1 in 'Unit1.pas' {Form1},
+  UIni in 'UIni.pas',
+  CleFTPConnector in 'CleFTPConnector.pas';
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+
+  Application.CreateForm(TForm1, Form1);
+  //Application.ShowMainForm  := false;
+
+  if ParamCount > 0 then
+    Form1.Param := ParamStr(1);
+  Form1.Param := '';
+
+  Application.Run;
+
+
+end.

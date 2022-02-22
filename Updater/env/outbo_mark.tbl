@@ -1,0 +1,41 @@
+6A 호주달러                      CME  통화    
+6B 영국파운드                    CME  통화    
+6C 캐나다달러                    CME  통화    
+6E 유로통화                      CME  통화    
+6J 일본엔                        CME  통화    
+6S 스위스프랑                    CME  통화    
+6L 브라질헤알                    CME  통화    
+E7 미니유로                      CME  통화    
+J7 미니엔                        CME  통화    
+M6Aⓜ호주달러                    CME  통화    
+M6Bⓜ영국파운드                  CME  통화    
+M6Eⓜ유로통화                    CME  통화    
+KRW한국원화                      CME  통화    
+RMB중국위안                      CME  통화    
+ES 미니 S&P                      CME  지수    
+NQ 미니 나스닥                   CME  지수    
+YM 미니 다우($5)                 CME  지수    
+CN 차이나 A50                    SGX  지수    
+QG 미니 가스                     CME  에너지  
+QM 미니 원유                     CME  에너지  
+CL WTI 원유                      CME  에너지  
+NG 천연가스                      CME  에너지  
+RB 가솔린                        CME  에너지  
+HO 난방유                        CME  에너지  
+ZB 미국채 30년                   CME  채권    
+ZF 미국채 5년물                  CME  채권    
+ZN 미국채 10년                   CME  채권    
+ZT 미국채 2년                    CME  채권    
+GE 유로통화선물                  CME  채권    
+GC 금(골드)                      CME  금속    
+SI 은(실버)                      CME  금속    
+HG 구리                          CME  금속    
+MGCⓜ금                          CME  금속    
+QC 미니구리                      CME  금속    
+QO 미니금                        CME  금속    
+ZC 옥수수                        CME  농산물  
+ZS 대두                          CME  농산물  
+ZW 밀                            CME  농산물  
+XC 미니옥수수                    CME  농산물  
+XK 미니대두                      CME  농산물  
+XW 미니밀                        CME  농산물  

@@ -1,0 +1,8 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2015-12-28 14:49:22.833.pas,C:\Users\Administrator\Documents\RAD Studio\Projects\Unit1.pas=C:\Users\Administrator\Desktop\Dropbox\src\KrExApi\ocx\OcxTest\Unit1.pas</Transaction>
+    <Transaction>2015-12-28 14:49:22.833.dfm,C:\Users\Administrator\Documents\RAD Studio\Projects\Unit1.dfm=C:\Users\Administrator\Desktop\Dropbox\src\KrExApi\ocx\OcxTest\Unit1.dfm</Transaction>
+    <Transaction>2015-12-28 14:49:24.678.dproj,C:\Users\Administrator\Documents\RAD Studio\Projects\Project1.dproj=C:\Users\Administrator\Desktop\Dropbox\src\KrExApi\ocx\OcxTest\Project1.dproj</Transaction>
+  </Transactions>
+</BorlandProject>

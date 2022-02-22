@@ -1,0 +1,468 @@
+unit DBoardParams ;
+
+interface
+
+uses Windows, SysUtils, Classes, Graphics, Forms, Controls, StdCtrls,
+  Buttons, ExtCtrls, Spin, Dialogs, Math, ComCtrls, IdGlobal;
+
+const
+  clColor  = $0000FF;
+  csColor  = $993333;
+  clxColor = $FFFF33;
+  cSxColor = $0066FF;
+
+type
+  TOrientationType = ( otAuto, otAsc, otDesc );
+
+  TOrderBoardParams = record
+      // time & sales (TNS)
+    ShowTNS: Boolean;      // TNS = Time & Sales,  ShowTNS: Boolean;   // 종목체결 표시
+    TNSOnLeft: Boolean;    // Side
+    TNSRowCount: Integer;     // TickCnt: Integer;        // 체결 수
+    UseTNSVolumeFilter: Boolean; // FillFilter: Boolean;     // 체결필터
+    TNSVolumeThreshold: Integer; // FillCnt: Integer;        // 필터수량
+    TNSPosition : Integer;
+      // position & orientation
+    OrientaionType: TOrientationType;
+      // orientation 부가정보
+    AscCount  : integer;
+    DescCount : integer;
+
+    MergeQuoteColumns: Boolean; // QtyMerge: Boolean;            // 잔량 통합
+    MergedQuoteOnLeft: Boolean; // QtySide: TSideType;           // 통합열 위치
+      // show
+    ShowOrderColumn: Boolean; // VisibleOrder: Boolean;  // 주문열
+    ShowIVColumn: Boolean;    //  VisibleIV:  Boolean;   //  IV 열
+    ShowStopColumn  : boolean;  // 스탑주문
+      // elw option
+    ShowAccumulFillBar  : Boolean;
+
+    ShowLpVolumeColumn  : Boolean;
+
+      // 세력분석
+    ShowForceDist : boolean;
+    ForceOnLeft   : boolean;
+    ShowForceSum  : boolean;
+    ForceSumSec   : integer;
+
+    ShowOrderData : Boolean;
+    OrderOnLeft   : boolean;
+    ShowOrderCount: integer;
+    FillterOrderQty  : integer;
+    FillterOrderHoga : integer;
+    FillterForceQty  : integer;
+      // 주문 추적
+    OwnOrderTrace    : boolean;
+    HideOwnOrderTrace: boolean;
+
+      // 누적 체결
+    ShowAccumulFills  : boolean;
+    AccumulOnLeft     : Boolean;
+    AccumulHoga       : integer;
+
+      // 색상정보..
+    ColorL,
+    ColorLx,
+    ColorLc,
+    ColorS,
+    ColorSx,
+    ColorSc : TColor;
+
+      //
+    UseStopCoolTime : boolean;
+    StopCoolTime    : integer;
+
+      // 호가분석
+    ShowMaxQty : boolean;
+    MaxQty : integer;
+
+    //ShowSubQtySet : boolean;
+
+    OrdHigh, OrdWid : integer;
+
+  end;
+
+  TBoardParamDialog = class(TForm)
+    ButtonOK: TButton;
+    BtnCancel: TButton;
+    GroupBox1: TGroupBox;
+    CheckBoxShowTNS: TCheckBox;
+    CheckBoxUseTNSVolumeFilter: TCheckBox;
+    EditTNSVolumeThreshold: TEdit;
+    EditTNSRowCount: TEdit;
+    GroupBox2: TGroupBox;
+    CheckBoxShowOrderColumn: TCheckBox;
+    cbStopOrder: TCheckBox;
+    CheckBoxMergeQuoteColumns: TCheckBox;
+    RadioButtonTNSRight: TRadioButton;
+    RadioButtonTNSLeft: TRadioButton;
+    Label1: TLabel;
+    Label2: TLabel;
+    Label3: TLabel;
+    Label4: TLabel;
+    Label5: TLabel;
+    RadioButtonMergedQuoteLeft: TRadioButton;
+    RadioButtonMergedQuoteRight: TRadioButton;
+    GroupBox4: TGroupBox;
+    AccumulFillBar: TCheckBox;
+    Label6: TLabel;
+    EditTNSPosition: TEdit;
+    CheckBoxEnterOrdered: TCheckBox;
+    LpVolumeColumn: TCheckBox;
+    rgOrientation: TRadioGroup;
+    GroupBox3: TGroupBox;
+    Label7: TLabel;
+    Label8: TLabel;
+    cbOrder: TCheckBox;
+    edtFillter: TEdit;
+    CheckBoxApplyToAll: TCheckBox;
+    CheckBoxSaveAsDefault: TCheckBox;
+    Label9: TLabel;
+    edtOrderQty: TEdit;
+    Label10: TLabel;
+    Label11: TLabel;
+    edtOrderHoga: TEdit;
+    Label12: TLabel;
+    Label13: TLabel;
+    rdOrderLeft: TRadioButton;
+    rdOrderRight: TRadioButton;
+    GroupBox5: TGroupBox;
+    cbForceDist: TCheckBox;
+    Label14: TLabel;
+    rdForceLeft: TRadioButton;
+    rdForceRight: TRadioButton;
+    Label15: TLabel;
+    edtForceFillter: TEdit;
+    Label16: TLabel;
+    Label17: TLabel;
+    Label18: TLabel;
+    Label19: TLabel;
+    cbAccumulFills: TCheckBox;
+    rdAccumulLeft: TRadioButton;
+    rdAccumulRight: TRadioButton;
+    edtAccumulHoga: TEdit;
+    cbForceSum: TCheckBox;
+    edtSumSec: TEdit;
+    Label20: TLabel;
+    Label21: TLabel;
+    GroupBox6: TGroupBox;
+    lColor: TShape;
+    ButtonColor: TSpeedButton;
+    Label22: TLabel;
+    Label23: TLabel;
+    lxColor: TShape;
+    SpeedButton1: TSpeedButton;
+    SpeedButton2: TSpeedButton;
+    lcColor: TShape;
+    Label24: TLabel;
+    SpeedButton3: TSpeedButton;
+    SpeedButton4: TSpeedButton;
+    SpeedButton5: TSpeedButton;
+    sColor: TShape;
+    sxColor: TShape;
+    scColor: TShape;
+    Label25: TLabel;
+    Label26: TLabel;
+    Label27: TLabel;
+    cbDefaultColor: TCheckBox;
+    ColorDialog: TColorDialog;
+    cbTrace: TCheckBox;
+    cbHideTrace: TCheckBox;
+    GroupBox7: TGroupBox;
+    cbCoolTime: TCheckBox;
+    edtCoolTime: TEdit;
+    cbMuchForce: TCheckBox;
+    edtMuchForce: TEdit;
+    Label28: TLabel;
+    edtOrdH: TLabeledEdit;
+    edtOrdW: TLabeledEdit;
+    Label29: TLabel;
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure EditNumericKeyPress(Sender: TObject; var Key: Char);
+    procedure rgOrientationClick(Sender: TObject);
+    procedure edtOrderHogaKeyPress(Sender: TObject; var Key: Char);
+    procedure ButtonColorClick(Sender: TObject);
+    procedure cbDefaultColorClick(Sender: TObject);
+    procedure cbTraceClick(Sender: TObject);
+    procedure cbHideTraceClick(Sender: TObject);
+  private
+    function GetApplyToAll: Boolean;
+    function GetSaveAsDefault: Boolean;
+    procedure SetParams(Value: TOrderBoardParams);
+    function GetParams: TOrderBoardParams;
+  public
+    property Params: TOrderBoardParams read GetParams write SetParams;
+      // options
+    property SaveAsDefault: Boolean read GetSaveAsDefault;
+    property ApplyToAll: Boolean read GetApplyToAll;
+  end;
+
+implementation
+
+{$R *.DFM}
+
+{ TBoardParamDialog }
+
+procedure TBoardParamDialog.edtOrderHogaKeyPress(Sender: TObject;
+  var Key: Char);
+begin
+  if not (Key in ['1'..'5', #8,#13]) then
+    Key := #0;
+end;
+
+procedure TBoardParamDialog.FormClose(Sender: TObject;
+  var Action: TCloseAction);
+begin
+  Action := caHide;
+end;
+
+//----------------------------------------------------------------------< set >
+
+procedure TBoardParamDialog.SetParams(Value: TOrderBoardParams);
+begin
+  with Value do
+  begin
+      // time & sale
+    CheckBoxShowTNS.Checked := ShowTNS;
+    RadioButtonTNSLeft.Checked := TNSOnLeft;
+    RadioButtonTNSRight.Checked := not TNSOnLeft;
+    EditTNSRowCount.Text := IntToStr(TNSRowCount);
+    CheckBoxUseTNSVolumeFilter.Checked := UseTNSVolumeFilter;
+    EditTNSVolumeThreshold.Text := IntToStr(TNSVolumeThreshold);
+    EditTNSPosition.Text  := IntToStr( TNSPosition );
+
+      // orientation
+    case OrientaionType of
+      otAuto : rgOrientation.ItemIndex := 0;
+      otAsc  : rgOrientation.ItemIndex := 1;   // 오름차순
+      otDesc : rgOrientation.ItemIndex := 2;   // 내림차순
+    end;
+      // columns
+    CheckBoxShowOrderColumn.Checked := ShowOrderColumn;
+    //CheckBoxShowIVColumn.Checked := ShowIVColumn;
+    cbStopOrder.Checked := ShowStopColumn;
+    CheckBoxMergeQuoteColumns.Checked := MergeQuoteColumns;
+    RadioButtonMergedQuoteLeft.Checked := MergedQuoteOnLeft;
+    RadioButtonMergedQuoteRight.Checked := not MergedQuoteOnLeft;
+
+      // elw option
+    AccumulFillBar.Checked  := ShowAccumulFillBar;
+    LpVolumeColumn.Checked  := ShowLpVolumeColumn;
+
+      // 세력분석
+    cbOrder.Checked := ShowOrderData;
+    cbForceSum.Checked  := ShowForceSum;
+    edtSumSec.Text      := intToStr( ForceSumSec );
+
+    rdOrderLeft.Checked := OrderOnLeft;
+    rdOrderRight.Checked := not OrderOnLeft;
+
+    edtFillter.Text := IntToStr( ShowOrderCount );
+    cbForceDist.Checked := ShowForceDist;
+    edtOrderQty.Text := IntToStr( FillterOrderQty );
+    edtORderHoga.Text:= INtToStr( FillterOrderHoga );
+
+    rdForceLeft.Checked := ForceOnLeft;
+    rdForceRight.Checked  := not ForceOnLeft;
+    edtForceFillter.Text := IntToStr( FillterForceQty );
+
+    cbAccumulFills.Checked  := ShowAccumulFills;
+    rdAccumulLeft.Checked   := AccumulOnLeft;
+    rdAccumulRight.Checked  := not AccumulOnLeft;
+    edtAccumulHoga.Text     := IntToStr( AccumulHoga );
+
+    lColor.Brush.Color  := ColorL;
+    lxColor.Brush.Color := ColorLx;
+    lcColor.Brush.Color := ColorLc;
+    sColor.Brush.Color  := ColorS;
+    sxColor.Brush.Color := ColorSx;
+    scColor.Brush.Color := ColorSc;
+
+    // 주문 추적
+    cbTrace.Checked     := OwnOrderTrace;
+    cbHideTrace.Checked := HideOwnOrderTrace;
+
+    cbCoolTime.Checked  := UseStopCoolTime;
+    edtCoolTime.Text    := IntToStr( StopCoolTime );
+
+    cbMuchForce.Checked := ShowMaxQty;
+    edtMuchForce.Text := IntToStr( MaxQty );
+
+    edtOrdH.Text  := IntToStr( OrdHigh );
+    edtOrdW.Text  := IntToStr( OrdWid );
+
+  end;
+end;
+
+//----------------------------------------------------------------------< get >
+
+function TBoardParamDialog.GetParams: TOrderBoardParams;
+begin
+  with Result do
+  begin
+      // time & sale
+    ShowTNS := CheckBoxShowTNS.Checked;           // show time & sale data
+    TNSOnLeft := RadioButtonTNSLeft.Checked;   // the position of time & sale table
+    TNSRowCount := StrToIntDef(EditTNSRowCount.Text, 10);  // number of time & sale data to show
+    UseTNSVolumeFilter := CheckBoxUseTNSVolumeFilter.Checked;  // filter small size of time & sales
+    TNSVolumeThreshold := StrToIntDef(EditTNSVolumeThreshold.Text, 0);  // threshold for filtering
+    TNSPosition := StrToIntDef( EditTNSPosition.Text, 0);
+
+      // orientation
+    case rgOrientation.ItemIndex of
+      0 : OrientaionType  := otAuto;
+      1 : OrientaionType  := otAsc;
+      2 : OrientaionType  := otDesc;
+    end;
+
+      // columns
+    ShowOrderColumn := CheckBoxShowOrderColumn.Checked;
+    //ShowIVColumn := CheckBoxShowIVColumn.Checked;
+    ShowStopColumn  := cbStopOrder.Checked;
+    MergeQuoteColumns := CheckBoxMergeQuoteColumns.Checked;
+    MergedQuoteOnLeft := RadioButtonMergedQuoteLeft.Checked;
+
+      // elw option
+    ShowAccumulFillBar  := AccumulFillBar.Checked;
+
+    ShowLpVolumeColumn  := LpVolumeColumn.Checked;
+
+      // 세력분석
+    ShowForceDist  := cbForceDist.Checked;
+    ShowOrderData := cbOrder.Checked;
+    ShowForceSum  := cbForceSum.Checked;
+    ForceSumSec   := StrToIntDef( edtSumSec.Text, 1 );
+
+    OrderOnLeft := rdOrderLeft.Checked;
+
+    ShowOrderCount:= StrToIntDef( edtFillter.Text, 0 );
+    FillterOrderQty := StrToIntDef( edtOrderQty.Text, 0);
+    FillterOrderHoga:= StrToIntDef( edtOrderHoga.Text, 1);
+
+    ForceOnLeft := rdForceLeft.Checked;
+    FillterForceQty := StrToIntDef( edtForceFillter.Text , 20);
+
+    ShowAccumulFills  := cbAccumulFills.Checked;
+    AccumulOnLeft     := rdAccumulLeft.Checked;
+    AccumulHoga       := StrToIntDef( edtAccumulHoga.Text ,2 );
+
+    ColorL  := lColor.Brush.Color;
+    ColorLx := lxColor.Brush.Color;
+    ColorLc := lcColor.Brush.Color;
+    ColorS  := sColor.Brush.Color;
+    ColorSx := sxColor.Brush.Color;
+    ColorSc := scColor.Brush.Color;
+
+    OwnOrderTrace := cbTrace.Checked;
+    HideOwnOrderTrace := cbHideTrace.Checked;
+
+    UseStopCoolTime := cbCoolTime.Checked;
+    StopCoolTime    := StrToIntDef( edtCoolTime.Text, 2000 );
+
+    ShowMaxQty  := cbMuchForce.Checked ;
+    MaxQty      := StrToIntDef( edtMuchForce.Text , 100 );
+
+    OrdHigh := StrToIntDef( edtOrdH.Text, 16 );
+    OrdWid  := StrToIntDef( edtOrdW.Text, 58 );
+
+  end;
+end;
+
+//-------------------------------------------------------------------< misc >
+
+//
+// Contraint a numeric TEdit to accept only numeric inputs.
+//
+procedure TBoardParamDialog.ButtonColorClick(Sender: TObject);
+var
+  iTag : integer;
+begin
+  if ColorDialog.Execute then
+  begin
+    iTag  := TSpeedButton( Sender ).Tag;
+
+    case iTag of
+    0 : lColor.Brush.Color  := ColorDialog.Color;
+    1 : lxColor.Brush.Color := ColorDialog.Color;
+    2 : lcColor.Brush.Color := ColorDialog.Color;
+    3 : sColor.Brush.Color  := ColorDialog.Color;
+    4 : sxColor.Brush.Color := ColorDialog.Color;
+    5 : scColor.Brush.Color := ColorDialog.Color;
+    end;
+  end;
+end;
+
+procedure TBoardParamDialog.cbDefaultColorClick(Sender: TObject);
+begin
+  // default
+  if cbDefaultColor.Checked then
+  begin
+    lColor.Brush.Color  := clColor;
+    lxColor.Brush.Color := clxColor;
+    lcColor.Brush.Color := clBlack;
+    sColor.Brush.Color  := csColor;
+    sxColor.Brush.Color := csxColor;
+    scColor.Brush.Color := clBlack;
+  end
+  else
+    with Params do
+    begin
+      lColor.Brush.Color  := ColorL;
+      lxColor.Brush.Color := ColorLx;
+      lcColor.Brush.Color := ColorLc;
+      sColor.Brush.Color  := ColorS;
+      sxColor.Brush.Color := ColorSx;
+      scColor.Brush.Color := ColorSc;
+    end;
+end;
+
+procedure TBoardParamDialog.cbHideTraceClick(Sender: TObject);
+begin
+  //
+end;
+
+procedure TBoardParamDialog.cbTraceClick(Sender: TObject);
+begin        {
+  if (not cbForceDist.Checked) and (cbTrace.Checked) then
+  begin
+    ShowMessage('세력분석 표시를 체크 하세요');
+    cbTrace.Checked := false;
+    Exit;
+  end;   }
+end;
+
+procedure TBoardParamDialog.EditNumericKeyPress(Sender: TObject;
+  var Key: Char);
+begin
+  if not (Key in ['0'..'9',#8, #13]) then
+    Key := #0;
+end;
+
+
+//------------------------------------------------------------------< options >
+
+//
+// if this option is checked, the parameters set up will be saved as default
+// values for new boards.
+//
+function TBoardParamDialog.GetSaveAsDefault: Boolean;
+begin
+  Result := CheckBoxSaveAsDefault.Checked;
+end;
+
+procedure TBoardParamDialog.rgOrientationClick(Sender: TObject);
+begin
+
+end;
+
+//
+// if this option is checked, the parameters set up will be applied to all
+// the boards.
+//
+function TBoardParamDialog.GetApplyToAll: Boolean;
+begin
+  Result := CheckBoxApplyToAll.Checked;
+end;
+
+
+end.

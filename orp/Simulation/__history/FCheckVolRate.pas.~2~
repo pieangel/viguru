@@ -1,0 +1,81 @@
+unit FCheckVolRate;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs,
+
+  CleQuoteBroker, CleSymbols, CleDistributor
+  ;
+
+type
+  TCheckVolRate = class(TForm)
+    procedure FormCreate(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure FormDestroy(Sender: TObject);
+  private
+    { Private declarations }
+    Calls , Puts : TList;
+  public
+    { Public declarations }
+    procedure QuoteProc(Sender, Receiver: TObject;
+      DataID: Integer; DataObj: TObject; EventID: TDistributorID);
+  end;
+
+var
+  CheckVolRate: TCheckVolRate;
+
+implementation
+
+uses
+  GAppEnv
+  ;
+
+{$R *.dfm}
+
+procedure TCheckVolRate.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  action := caFree;
+end;
+
+procedure TCheckVolRate.FormCreate(Sender: TObject);
+var
+  I: Integer;
+  aSymbol : TSymbol;
+begin
+  Calls := TList.Create;
+  Puts  := TList.Create;
+
+  gEnv.Engine.SymbolCore.GetCurCallList( 1.0, 0.02, 10, Calls );
+  gEnv.Engine.SymbolCore.GetCurPutList( 1.0, 0.02, 10, Calls );
+
+  for I := 0 to Calls.Count - 1 do
+  begin
+    aSymbol := TSymbol( Calls.Items[i] );
+    gEnv.Engine.QuoteBroker.Subscribe( self, aSymbol, QuoteProc );
+  end;
+
+  for I := 0 to Puts.Count - 1 do
+  begin
+    aSymbol := TSymbol( Puts.Items[i] );
+    gEnv.Engine.QuoteBroker.Subscribe( self, aSymbol, QuoteProc );
+  end;
+
+end;
+
+procedure TCheckVolRate.FormDestroy(Sender: TObject);
+begin
+  gEnv.Engine.QuoteBroker.Cancel( Self );
+
+  Calls.Free;
+  Puts.Free;
+end;
+
+procedure TCheckVolRate.QuoteProc(Sender, Receiver: TObject; DataID: Integer;
+  DataObj: TObject; EventID: TDistributorID);
+begin
+
+end;
+
+end.

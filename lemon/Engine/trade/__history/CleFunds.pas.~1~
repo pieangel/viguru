@@ -1,0 +1,185 @@
+unit CleFunds;
+
+// Copyright(C) Eight Pines Technologies, Inc. All Rights Reserved.
+
+// Fund Data Storage: It define the FUND object and storages of it
+
+interface
+
+uses
+  Classes, SysUtils,
+    // lemon: data
+  CleAccounts;
+
+type
+  TFund = class(TCollectionItem)
+  private
+    FCode: String;
+    FName: String;
+    FNetLiq: Double;
+
+    FAccounts: TAccountList;
+  public
+    constructor Create(aColl: TCollection); override;
+    destructor Destroy; override;
+
+    procedure AddAccount(aAccount: TAccount);
+
+    function Represet: String;
+
+    property Code: String read FCode;
+    property Name: String read FName;
+    property NetLiq: Double read FNetLiq write FNetLiq;
+
+    property Accounts: TAccountList read FAccounts;
+  end;
+
+  TFunds = class(TCollection)
+  private
+    function GetFund(i: Integer): TFund;
+  public
+    constructor Create;
+
+    function New(stCode, stName: String): TFund;
+    function Find(stCode: String): TFund; overload;
+    function Find(aAccount: TAccount): TFund; overload;
+
+    procedure GetList(stList: TStrings);
+    procedure GetListEx(stList: TStrings);
+    function Represent: String;
+
+    property Funds[i:Integer]: TFund read GetFund; default;
+  end;
+
+implementation
+
+{ TFund }
+
+procedure TFund.AddAccount(aAccount: TAccount);
+begin
+  FAccounts.AddAccount(aAccount);
+end;
+
+constructor TFund.Create(aColl: TCollection);
+begin
+  inherited Create(aColl);
+
+  FAccounts := TAccountList.Create;
+end;
+
+destructor TFund.Destroy;
+begin
+  FAccounts.Free;
+
+  inherited;
+end;
+
+function TFund.Represet: String;
+begin
+  Result := Format('(%s,%s,%.2f,%s)', [FCode, FName, FNetLiq, FAccounts.Represent]);
+end;
+
+{ TFunds }
+
+constructor TFunds.Create;
+begin
+  inherited Create(TFund);
+end;
+
+function TFunds.Find(stCode: String): TFund;
+var
+  i: Integer;
+begin
+  Result := nil;
+  stCode := Trim(stCode);
+
+  for i := 0 to Count - 1 do
+    if CompareStr(stCode, GetFund(i).Code) = 0 then
+    begin
+      Result := Items[i] as TFund;
+      Break;
+    end;
+end;
+
+function TFunds.Find(aAccount: TAccount): TFund;
+var
+  i: Integer;
+begin
+  Result := nil;
+  if aAccount = nil then Exit;
+
+  for i := 0 to Count - 1 do
+    if GetFund(i).Accounts.IndexOfObject(aAccount) >= 0 then
+    begin
+      Result := Items[i] as TFund;
+      Break;
+    end;
+end;
+
+function TFunds.GetFund(i: Integer): TFund;
+begin
+  if (i >= 0) and (i <= Count-1) then
+    Result := Items[i] as TFund
+  else
+    Result := nil;
+end;
+
+function TFunds.New(stCode, stName: String): TFund;
+begin
+  stCode := Trim(stCode);
+  stName := Trim(stName);
+
+  Result := Find(stCode);
+
+  if Result = nil then
+  begin
+    Result := Add as TFund;
+
+    Result.FCode := stCode;
+    Result.FName := stName;
+  end;
+end;
+
+procedure TFunds.GetList(stList: TStrings);
+var
+  i: Integer;
+  aFund: TFund;
+begin
+  if stList = nil then Exit;
+
+  for i := 0 to Count - 1 do
+  begin
+    aFund := GetFund(i);
+    stList.AddObject(aFund.Name, aFund);
+  end;
+end;
+
+procedure TFunds.GetListEx(stList: TStrings);
+var
+  i: Integer;
+  aFund: TFund;
+  j: Integer;
+begin
+  if stList = nil then Exit;
+
+  for i := 0 to Count - 1 do
+  begin
+    aFund := GetFund(i);
+    stList.AddObject('+' + aFund.Name, aFund);
+    for j := 0 to aFund.Accounts.Count - 1 do
+     stList.AddObject('...' + aFund.Accounts[j].Name, aFund.Accounts[j]);
+  end;
+end;
+
+function TFunds.Represent: String;
+var
+  i: Integer;
+begin
+  Result := '(';
+  for i := 0 to Count - 1 do
+    Result := Result + GetFund(i).Represet;
+  Result := Result + ')';
+end;
+
+
+end.

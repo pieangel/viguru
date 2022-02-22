@@ -1,0 +1,38 @@
+unit FFundConfig;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, ExtCtrls,
+
+  CleFunds
+  ;
+
+type
+  TFrmFundName = class(TForm)
+
+  private
+    { Private declarations }
+
+  public
+    { Public declarations }
+
+  end;
+
+var
+  FrmFundName: TFrmFundName;
+
+implementation
+
+uses
+  GAppEnv
+  ;
+
+{$R *.dfm}
+
+{ TFrmFundName }
+
+
+
+end.

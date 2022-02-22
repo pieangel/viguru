@@ -1,0 +1,660 @@
+unit CleKrxSymbolMySQLLoader;
+
+interface
+
+uses
+  Classes, SysUtils, Dialogs, Math, ADODB,  Forms,  DateUtils,
+
+    // lemon: common
+  GleTypes,  GleConsts,
+    // lemon: utils
+  CleMySQLConnector, CleParsers,
+    // lemon: data
+  CleMarketSpecs, CleSymbols,
+    // lemon: KRX
+  CleKrxSymbols
+    // simulation
+  ;
+
+const
+  DBLoadCount = 400;
+
+type
+  TKRXSymbolMySQLLoader = class
+  private
+    FConnector: TMySQLConnector;
+
+    FParser: TParser;
+    FRecords: TStringList;
+    FCodes: TStringList;
+
+    FOnLog: TTextNotifyEvent;
+
+    procedure DoLog(stLog: String);
+    function GetUnderlying(stUnder: string): TSymbol;
+    function GetUnderlyingByVi(stUnder: string): TSymbol;
+    function GetMarketSpec(stUnder: string; bOpt : boolean): TMarketSpec;
+    function GetMarketSpecByVi(stUnder: string; bOpt : boolean): TMarketSpec;
+    procedure ImportMasterFromKrApi(stData: string);
+
+  public
+    constructor Create(aConnector: TMySQLConnector);
+    destructor Destroy; override;
+
+      // register fixed information
+    procedure SetSpecs;
+    procedure UpdateSpec;
+    procedure AddFixedSymbols;
+
+    // api
+    procedure ImportMasterFromNHApi( aList : TStringList; iCnt : integer );
+    procedure ImportMasterFromSymbolCode( aList : TStringList; iCnt : integer );
+      // properties
+    property OnLog: TTextNotifyEvent read FOnLog write FOnLog;
+  end;
+
+implementation
+
+uses GAppEnv, GleLib, CleMarkets, Ticks, CleFQN, GAppConsts,
+CleQuoteBroker, ApiPacket, ApiConsts;
+
+{ TKRXSymbolMySQLLoader }
+
+constructor TKRXSymbolMySQLLoader.Create( aConnector: TMySQLConnector);
+begin
+
+  FConnector := aConnector;
+     // create objects
+  FParser := TParser.Create([',']);
+  FRecords := TStringList.Create;
+  FCodes := TStringList.Create;
+  FCodes.Sorted := True;
+end;
+
+destructor TKRXSymbolMySQLLoader.Destroy;
+begin
+
+  FRecords.Free;
+  FParser.Free;
+  FCodes.Free;
+
+  inherited;
+end;
+
+procedure TKRXSymbolMySQLLoader.DoLog(stLog: String);
+begin
+  if Assigned(FOnLog) then
+    FOnLog(Self, 'KRX MySQL Symbol Loader: ' + stLog);
+end;
+
+//---------------------------------------------------------------< fixed info >
+
+// register market specification using the information
+// in the unit CleKRXSymbols
+//
+
+
+
+procedure TKRXSymbolMySQLLoader.SetSpecs;
+var
+  i: Integer;
+begin
+  if gEnv.Engine = nil then Exit;
+
+  for i := Low(KRX_SPECS) to High(KRX_SPECS) do
+    with gEnv.Engine.SymbolCore.Specs.New(KRX_SPECS[i].FQN) do
+    begin
+      RootCode := KRX_SPECS[i].Root;
+      Description := KRX_SPECS[i].Desc;
+      Sector := KRX_SPECS[i].Sector;
+      Currency := KRX_SPECS[i].Currency;
+      SetTick(KRX_SPECS[i].TickSize, KRX_SPECS[i].Frac, KRX_SPECS[i].Prec);
+      SetPoint(KRX_SPECS[i].ContractSize, KRX_SPECS[i].PriceQuote);
+    end;
+end;
+
+procedure TKRXSymbolMySQLLoader.UpdateSpec;
+
+  procedure SetPointValue(aSpec : TMarketSpec; stResult : string);
+  var
+    stTmp : string;
+    dUnit : double;
+  begin
+    if aSpec = nil then Exit;
+    dUnit := StrToFloatDef( trim(stResult), 1 );
+    if dUnit > 0 then  begin
+      stTmp := Format('%s, %.0f', [ aSpec.FQN, aSpec.PointValue ]);
+      aSpec.SetPoint( dUnit, 1);
+      gEnv.EnvLog( WIN_TEST, Format( '승수적용 :  %s -> %.0f', [ stTmp, aSpec.PointValue])  );
+    end;
+  end;
+var
+  I: integer;
+  aFutMarket : TFutureMarket;
+begin         
+
+  with gEnv.Engine do
+  begin
+    {
+    if SymbolCore.Future <> nil then
+      SetPointValue( SymbolCore.Future.Spec, Api.Api.OGetJongMokInfo( 9, SymbolCore.Future.Code ));
+    if SymbolCore.MiniFuture <> nil then
+      SetPointValue( SymbolCore.MiniFuture.Spec, Api.Api.OGetJongMokInfo( 9, SymbolCore.MiniFuture.Code ));
+
+    if SymbolCore.KrxFuture <> nil then
+      SetPointValue( SymbolCore.KrxFuture.Spec, Api.Api.OGetJongMokInfo( 9, SymbolCore.KrxFuture.Code ));
+
+    if SymbolCore.UsFuture <> nil then
+      SetPointValue( SymbolCore.UsFuture.Spec, Api.Api.OGetJongMokInfo( 9, SymbolCore.UsFuture.Code ));
+    if SymbolCore.JpyFuture <> nil then
+      SetPointValue( SymbolCore.JpyFuture.Spec, Api.Api.OGetJongMokInfo( 9, SymbolCore.JpyFuture.Code ));
+
+    if SymbolCore.Bond3Future <> nil then
+      SetPointValue( SymbolCore.Bond3Future.Spec, Api.Api.OGetJongMokInfo( 9, SymbolCore.Bond3Future.Code ));
+    if SymbolCore.Bond5Future <> nil then
+      SetPointValue( SymbolCore.Bond5Future.Spec, Api.Api.OGetJongMokInfo( 9, SymbolCore.Bond5Future.Code ));
+    if SymbolCore.Bond10Future <> nil then
+      SetPointValue( SymbolCore.Bond10Future.Spec, Api.Api.OGetJongMokInfo( 9, SymbolCore.Bond10Future.Code ));
+    if SymbolCore.KD150Future <> nil then
+      SetPointValue( SymbolCore.KD150Future.Spec, Api.Api.OGetJongMokInfo( 9, SymbolCore.KD150Future.Code ));
+
+    if SymbolCore.MonthlyItem.Symbols.Count > 0 then
+      SetPointValue( SymbolCore.MonthlyItem.Options[0].Spec, Api.Api.OGetJongMokInfo( 9, SymbolCore.MonthlyItem.Options[0].Code ));
+
+    if SymbolCore.MiniMonthlyItem.Symbols.Count > 0 then
+      SetPointValue( SymbolCore.MiniMonthlyItem.Options[0].Spec, Api.Api.OGetJongMokInfo( 9, SymbolCore.MiniMonthlyItem.Options[0].Code ));
+
+    // 주식선물도
+    for I := 0 to SymbolCore.FutureMarkets.Count - 1 do
+    begin
+      aFutMarket := SymbolCore.FutureMarkets.FutureMarkets[ i ];
+      if aFutMarket.FrontMonth <> nil then
+        SetPointValue( aFutMarket.FrontMonth.Spec, Api.Api.OGetJongMokInfo( 9, aFutMarket.FrontMonth.Code ));
+    end;
+    }
+  end;
+
+
+
+end;
+
+// rigister index symbols
+// 마켓을 종류 별로 등록해 준다. 
+procedure TKRXSymbolMySQLLoader.AddFixedSymbols;
+var
+  aIndex: TIndex;
+  aCurr : TCurrency;
+  aBond : TBond;
+begin
+  if gEnv.Engine = nil then Exit;
+
+    // KOSPI200 index
+  aIndex := gEnv.Engine.SymbolCore.Indexes.New(KOSPI200_CODE);
+  aIndex.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_KRX_INDEX);
+  aIndex.Name := 'K200 Index';
+  aIndex.ShortCode  :=  KOSPI200_CODE;
+
+  gEnv.Engine.SymbolCore.RegisterSymbol(aIndex);
+
+    // KOSDAQ150 index
+  aIndex := gEnv.Engine.SymbolCore.Indexes.New(KOSDAQ150_CODE);
+  aIndex.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_KRX_INDEX);
+  aIndex.Name := 'KD150 Index';
+  aIndex.ShortCode  :=  KOSDAQ150_CODE;
+
+  gEnv.Engine.SymbolCore.RegisterSymbol(aIndex);
+
+  // KRX300 index
+  aIndex := gEnv.Engine.SymbolCore.Indexes.New(KRX300_CODE);
+  aIndex.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_KRX_INDEX);
+  aIndex.Name := 'KRX300 Index';
+  aIndex.ShortCode  :=  KRX300_CODE;
+  gEnv.Engine.SymbolCore.RegisterSymbol(aIndex);
+
+
+    // Mini KOSPI200 index
+  aIndex := gEnv.Engine.SymbolCore.Indexes.New(MINI_KOSPI200_CODE);
+  aIndex.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_KRX_INDEX);
+  aIndex.Name := 'Mini K200 Index';
+  aIndex.ShortCode  :=  MINI_KOSPI200_CODE;
+
+  gEnv.Engine.SymbolCore.RegisterSymbol(aIndex);
+
+    // 미국 달러 선물
+  aCurr := gEnv.Engine.SymbolCore.Currencies.New(DOLLAR_CODE);
+  aCurr.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_KRX_CURRENCY);
+  aCurr.Name := 'USA Dollar';
+  aCurr.ShortCode  :=  DOLLAR_CODE;
+  gEnv.Engine.SymbolCore.RegisterSymbol(aCurr);
+
+    // 일본 엔 선물
+  aCurr := gEnv.Engine.SymbolCore.Currencies.New(YEN_CODE);
+  aCurr.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_KRX_CURRENCY);
+  aCurr.Name := 'JPY Yen';
+  aCurr.ShortCode  :=  YEN_CODE;
+  gEnv.Engine.SymbolCore.RegisterSymbol(aCurr);
+
+    //  국채 선물   - 3년 국채
+  aBond := gEnv.Engine.SymbolCore.Bonds.New(BOND3_CODE);
+  aBond.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_KRX_BOND);
+  aBond.Name := 'Bond 3Yesr';
+  aBond.ShortCode  :=  BOND3_CODE;
+  gEnv.Engine.SymbolCore.RegisterSymbol(aBond);
+
+
+  aBond := gEnv.Engine.SymbolCore.Bonds.New(BOND5_CODE);
+  aBond.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_KRX_BOND);
+  aBond.Name := 'Bond 5Year';
+  aBond.ShortCode  :=  BOND5_CODE;
+  gEnv.Engine.SymbolCore.RegisterSymbol(aBond);
+
+
+
+  aBond := gEnv.Engine.SymbolCore.Bonds.New(BOND10_CODE);
+  aBond.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_KRX_BOND);
+  aBond.Name := 'BOnd 10Year';
+  aBond.ShortCode  :=  BOND10_CODE;
+  gEnv.Engine.SymbolCore.RegisterSymbol(aBond);
+
+
+end;
+
+//---------------------------------------------------------------------< load >
+// 기초자산 얻어 오기
+// NH 코드로 기조자산 얻어 오기 
+function TKRXSymbolMySQLLoader.GetUnderlying( stUnder : string ) : TSymbol;
+var
+  stCode : string;
+begin
+  stCode := '';
+
+  if stUnder = K2I then   // Kospi 200 index
+    stCode := KOSPI200_CODE
+  else if stUnder = MKI then // Mini Kospi 200 Index
+    stCode := MINI_KOSPI200_CODE
+  else if stUnder = KSD then
+    stCode := KOSDAQ150_CODE  // Kosdaq 150 Index
+  else if stUnder = KX3 then
+    stCode := KRX300_CODE   // Krx 300 Index
+  else if stUnder = BM3 then
+    stCode := BOND3_CODE    // Bond 3 Year
+  else if stUnder = BM5 then
+    stCode := BOND5_CODE   // Bond 5 Year
+  else if stUnder = BMA then
+    stCode := BOND10_CODE  // Bond 10 Year
+  else if stUnder = JPY then
+    stCode  := YEN_CODE  // Yen
+  else if stUnder = USD then
+    stCode :=  DOLLAR_CODE;  // Dollar
+
+  Result := gEnv.Engine.SymbolCore.Symbols.FindCode(stCode)
+end;
+
+function TKRXSymbolMySQLLoader.GetUnderlyingByVi( stUnder : string ) : TSymbol;
+var
+  stCode : string;
+begin
+  stCode := '';
+
+  if stUnder = VI_KOSPI then   // Kospi 200 index
+    stCode := KOSPI200_CODE
+  else if stUnder = VI_MINI_KOSPI then // Mini Kospi 200 Index
+    stCode := MINI_KOSPI200_CODE
+  else if stUnder = VI_KOSDAQ then
+    stCode := KOSDAQ150_CODE
+  else if stUnder = KX3 then
+    stCode := KRX300_CODE
+  else if stUnder = BM3 then
+    stCode := BOND3_CODE
+  else if stUnder = BM5 then
+    stCode := BOND5_CODE
+  else if stUnder = VI_BOND_10YR then
+    stCode := BOND10_CODE
+  else if stUnder = JPY then
+    stCode  := YEN_CODE
+  else if stUnder = VI_USD then
+    stCode :=  DOLLAR_CODE;
+
+  Result := gEnv.Engine.SymbolCore.Symbols.FindCode(stCode)
+end;
+
+// NH 코드로 마켓 스펙 얻어 오기
+function TKRXSymbolMySQLLoader.GetMarketSpec( stUnder : string; bOpt : boolean ) : TMarketSpec;
+var
+  stCode : string;
+begin
+  stCode := '';
+
+  if bOpt then
+  begin
+    if stUnder = K2I then
+      stCode := FQN_KOSPI200_OPTION // 코스피 200 옵션
+    else if stUnder = MKI then
+      stCode := FQN_MINI_KOSPI200_OPTION // 코스피 200 미니 옵션
+    else if stUnder = USD then
+      stCode := FQN_DOLLAR_OPTION; // 코스피 달러 옵션
+  end else
+  begin
+    if stUnder = K2I then
+      stCode := FQN_KOSPI200_FUTURES  // 코스피 200 선물
+    else if stUnder = MKI then
+      stCode := FQN_MINI_KOSPI200_FUTURES   // 코스피 200 미니선물
+    else if stUnder = KX3 then
+      stCode := FQN_KRX300_FUTURES  // krx 300 선물
+    else if stUnder = KSD then
+      stCode := FQN_KOSDAQ150_FUTURES // 코스닥 150 선물
+    else if stUnder = BM3 then
+      stCode := FQN_BOND3_FUTURES  // 3년물 국채 선물
+    else if stUnder = BM5 then
+      stCode := FQN_BOND5_FUTURES  // 5년물 국채 선물
+    else if stUnder = BMA then
+      stCode := FQN_BOND10_FUTURES // 10년물 국채 선물
+    else if stUnder = JPY then
+      stCode := FQN_YEN_FUTURES   // 엔 선물
+    else if stUnder = USD then
+      stCode := FQN_DOLLAR_FUTURES;   // 달러 선물
+  end;
+
+  // 시장에 따른 스펙을 가져온다.
+  Result  := gEnv.Engine.SymbolCore.Specs.Find( stCode );
+end;
+
+function TKRXSymbolMySQLLoader.GetMarketSpecByVi( stUnder : string; bOpt : boolean ) : TMarketSpec;
+var
+  stCode : string;
+begin
+  stCode := '';
+
+  if bOpt then
+  begin
+    if stUnder = K2I then
+      stCode := FQN_KOSPI200_OPTION // 코스피 200 옵션
+    else if stUnder = MKI then
+      stCode := FQN_MINI_KOSPI200_OPTION // 코스피 200 미니 옵션
+    else if stUnder = USD then
+      stCode := FQN_DOLLAR_OPTION; // 코스피 달러 옵션
+  end else
+  begin
+    if stUnder = K2I then
+      stCode := FQN_KOSPI200_FUTURES  // 코스피 200 선물
+    else if stUnder = MKI then
+      stCode := FQN_MINI_KOSPI200_FUTURES   // 코스피 200 미니선물
+    else if stUnder = KX3 then
+      stCode := FQN_KRX300_FUTURES  // krx 300 선물
+    else if stUnder = KSD then
+      stCode := FQN_KOSDAQ150_FUTURES // 코스닥 150 선물
+    else if stUnder = BM3 then
+      stCode := FQN_BOND3_FUTURES  // 3년물 국채 선물
+    else if stUnder = BM5 then
+      stCode := FQN_BOND5_FUTURES  // 5년물 국채 선물
+    else if stUnder = BMA then
+      stCode := FQN_BOND10_FUTURES // 10년물 국채 선물
+    else if stUnder = JPY then
+      stCode := FQN_YEN_FUTURES   // 엔 선물
+    else if stUnder = USD then
+      stCode := FQN_DOLLAR_FUTURES;   // 달러 선물
+  end;
+
+  // 시장에 따른 스펙을 가져온다.
+  Result  := gEnv.Engine.SymbolCore.Specs.Find( stCode );
+end;
+
+
+{
+
+  마스터 파일 구조
+
+      //0  시장코드         -> 03
+      //1  거래대상코드     -> 01 코스피지수
+      //2  거래대상코드명
+      //3  파생상품코드     -> 001 : call,   002 : put,    004 : Fut,    119 : spread
+      //4  선/옵 구분       -> 0 : 선물   2 : call   3 : put
+      //5  종목코드( 거래소 )
+      //6  종목코드( 국문 )
+      //7  종목코드( 영문 )
+      //8  종목명( 국문 )
+      //9  종목명( 영문 )
+      //10 만기년  ( 4)
+      //11 만기월  ( 2)
+      //12 잔존일수  (3)
+      //13 행사가
+      //14 ATM 여부     1 :atm
+      //15 상한가
+      //16 하한가
+}
+
+procedure TKRXSymbolMySQLLoader.ImportMasterFromNHApi(aList: TStringList;
+  iCnt: integer);
+var
+  //
+  bNew, bOpt : boolean;
+  stTmp, stcode, stName, stUnder, stFQN : string;
+  iLen, i : integer;
+  aUnder, aSymbol : TSymbol;
+  cDiv : char;
+  aSpec : TMarketSpec;
+begin
+
+  stTmp := '';
+  for I := 0 to aList.Count - 1 do
+    stTmp := stTmp + ' , ' + aList[i];
+
+  stTmp := trim( aList[3] );
+  if stTmp = '001' then
+    cDiv := '2'
+  else if  stTmp = '002' then
+    cDiv := '3'
+  else if stTmp = '004' then
+    cDiv := '1'
+  else Exit;
+
+  // stTMp = '004' 이고 aList[0] = '01' ---> 주식선물
+
+  // 옵션
+  case cDiv of
+    '2','3' : bOpt := true;
+  end;
+
+  bNew := false;
+  // 코스피, 코스닥, 미니 코스피, 주식 선물
+  stUnder := trim( aList[2] );
+
+  // 마켓 스펙을 가져온다.
+  aSpec   := GetMarketSpec( stUnder, bOpt );
+  // 기초 시장 스펙을 가져온다.
+  aUnder  := GetUnderlying( stUnder );
+
+  // 마켓 스펙도 없거나 기초 시장 스펙도 없는 경우에 
+  if (aUnder = nil) or ( aSpec = nil ) then
+  begin
+    // 주식선물
+    if (stTmp = '004' ) and ( aList[0] = '01') then  begin
+      cDiv := '4' ;
+
+      if not gEnv.ConConfig.UseSFut then
+        exit;
+      // 주식선물 기초자산을 만들어준다.
+      stUnder := trim( aList[1] ) + '_' + trim( aList[2] );
+      aUnder := gEnv.Engine.SymbolCore.Stocks.Find( stUnder);
+      if aUnder = nil then
+      begin
+        // stUnder 를 종목코드와 종목명으로...( 기초자산 코드가 마스터 파일에 없으므로 )
+        aUnder  := gEnv.Engine.SymbolCore.Stocks.New( stUnder );
+        aUnder.Spec := gEnv.Engine.SymbolCore.Specs.Find( FQN_KRX_STOCK );;
+
+        stName := trim(aList[8]);
+        iLen := Length( stName );
+
+        for I := iLen downto 1 do
+          if stName[i] = 'F' then
+            break;
+
+        aUnder.Name := trim(Copy(stName, 1, i-1 ));
+        if aUnder.Name = '' then
+          aUnder.Name := stUnder;
+        gEnv.Engine.SymbolCore.RegisterSymbol(aUnder);
+      end;
+    end
+    else
+      Exit;
+  end;
+
+  // 종목 코드를 가져온다.
+  stCode  := trim(aList[5]);
+  // 종목 코드로 심볼을 찾아 온다. 
+  aSymbol := gEnv.Engine.SymbolCore.Symbols.FindCode(stCode);
+  {
+  // 2017.03.27 승수변경
+  if aSpec <> nil then
+  begin
+    dUnit := StrToFloatDef( trim(string(pMaster.TradeUnit)), 1 );
+    if dUnit > 0 then
+      aSpec.SetPoint( dUnit, 1);
+  end;
+  }
+
+  // 새로운 심볼일 경우
+  if aSymbol = nil then
+  begin
+    bNew := true;
+    case cDiv of
+      '1' : aSymbol := gEnv.Engine.SymbolCore.Futures.New(stCode);
+      '2' :
+        begin
+          aSymbol := gEnv.Engine.SymbolCore.Options.New(stCode);
+          (aSymbol as TOption).CallPut := 'C';
+          aSymbol.OptionType  := otCall;
+        end ;
+      '3' :
+        begin
+          aSymbol := gEnv.Engine.SymbolCore.Options.New(stCode);
+          (aSymbol as TOption).CallPut := 'P';
+          aSymbol.OptionType  := otPut;
+        end ;
+      '4' : // 주식선물
+        begin
+          aSymbol := gEnv.Engine.SymbolCore.Futures.New(stCode);
+          stFQN   := stUnder+'.future.krx.kr';
+          aSpec   := gEnv.Engine.SymbolCore.Specs.Find( stFQN );
+          aSymbol.IsStockF := true;
+          if aSpec = nil then
+          begin
+            aSpec := gEnv.Engine.SymbolCore.Specs.New(stFQN);
+            aSpec.RootCode := stUnder;
+            aSpec.Description := aUnder.Name + ' Futures';
+            {todo: }
+            //aSpec.Sector := FieldByName('krx100section').AsString;
+            aSpec.Currency := CURRENCY_WON;
+            aSpec.SetTick(10, 1, 0);
+            aSpec.SetPoint(1, 1);
+            aSpec.SetSector(STOCK_FUT);
+          end;
+        end;
+    end;
+    // 심볼에 마켓 스펙을 넣어 준다. 
+    aSymbol.Spec  := aSpec;
+  end   // if aSymbol = nil then
+  else bNew := false;
+
+  // 심볼 정보를 넣어 준다.
+  with aSymbol do
+  begin
+    // 이름
+    Name      := trim(aList[8]);
+    // 영문 이름 
+    EngName   := trim(aList[9]);
+    // 단축 코드 
+    ShortCode := stCode;
+    // 시퀀스 
+    Seq       := iCnt;
+
+    // 상한선 
+    LimitHigh := StrToFloat(trim(aList[15]));
+    // 하한 선 
+    LimitLow  := StrToFloat(trim(aList[16]));
+    // 최종 거래일 
+    Last      := StrToFloat(trim(aList[17]));
+  end;
+
+
+  with aSymbol as TDerivative do
+  begin
+    // 기초 자산 구분
+    Underlying := aUnder;
+    // 코스피, 코스닥, 미니 코스피, 주식 선물
+    UnderCode  := stUnder;
+    // 만기일을 숫자로 
+    DaysToExp := StrToInt( aList[12] );
+    // 만기일 
+    ExpDate   := Date + DaysToExp - 1;
+  end;
+
+  // 옵션일 경우
+  if aSymbol is TOption then
+  with aSymbol as TOption do
+  begin
+    // 행사가
+    StrikePrice := StrToFloat( trim( aList[13] ));
+    // 등가 여부 
+    IsATM := trim( aList[14] ) = '1' ;
+  end;
+
+  if bNew then
+  begin
+    // 새로운 심볼이면 심볼을 심볼 관리자에 등록해 준다. 
+    gEnv.Engine.SymbolCore.RegisterSymbol(aSymbol);
+    // 요청 목록에 추가해 준다. 
+    //gEnv.Engine.Api.PushRequest( Qry_LastHoga, aSymbol.Code  );
+  end;
+
+end;
+
+procedure TKRXSymbolMySQLLoader.ImportMasterFromKrApi(stData: string);
+var
+//  vData : POutSymbolMaster;
+  stTmp, stFullCode: string;
+  aSymbol : TSymbol;
+  dTIckValue, dContractSize, dTickSize : double;
+  yy, mm, dd , i, iPre: word;
+begin
+  {
+  if Length( stData ) < Len_OutSymbolMaster then Exit;
+
+  try
+
+    vData := POutSymbolMaster( stData );
+    stFullCode  := trim(string(vData.FullCode));
+
+    aSymbol := gEnv.Engine.SymbolCore.Symbols.FindCode(stFullCode);
+    if aSymbol <> nil then
+    begin
+
+      with aSymbol do
+      begin
+        Base  := StrToFloatDef( trim( string( vData.StdPrice)), 0 );
+        PrevClose := StrToFloatDef( trim(string( vData.PDEndPrice ) ) ,0) ;
+        Last    := PrevClose; // updated during the day
+
+        LimitHigh := StrToFloatDef( trim( string( vData.HighLimitPrice)), 0 );
+        LimitLow  := StrToFloatDef( trim( string( vData.LowLimitPrice)), 0 );
+      end;
+
+      with aSymbol as TDerivative do
+      begin
+        DaysToExp := StrToInt( string(vData.RemainDays) );
+        CDRate    := StrToFloat( trim( string( vData.CDInterest )));
+      end;
+
+    end;
+
+  except
+
+  end;
+  }
+end;
+
+
+
+end.
+
+

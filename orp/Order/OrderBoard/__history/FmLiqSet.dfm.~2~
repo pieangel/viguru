@@ -1,0 +1,159 @@
+object FrmLiqSet: TFrmLiqSet
+  Left = 0
+  Top = 0
+  Width = 398
+  Height = 78
+  TabOrder = 0
+  object GroupBox3: TGroupBox
+    Left = 0
+    Top = 2
+    Width = 281
+    Height = 72
+    Caption = #52404#44208#49884' '#51060#51061'/'#49552#49892#49444#51221
+    TabOrder = 0
+    object cbPrfLiquid: TCheckBox
+      Left = 7
+      Top = 21
+      Width = 71
+      Height = 17
+      Caption = #51060#51061#49892#54788
+      TabOrder = 0
+    end
+    object cbLosLiquid: TCheckBox
+      Left = 7
+      Top = 42
+      Width = 71
+      Height = 17
+      Caption = #49552#49892#51228#54620
+      TabOrder = 1
+    end
+    object udPrfTick: TUpDown
+      Left = 120
+      Top = 18
+      Width = 16
+      Height = 21
+      Associate = edtPrfTick
+      Max = 1000
+      Position = 5
+      TabOrder = 2
+    end
+    object udLosTick: TUpDown
+      Left = 120
+      Top = 39
+      Width = 16
+      Height = 21
+      Associate = edtLosTick
+      Max = 1000
+      Position = 5
+      TabOrder = 3
+    end
+    object edtPrfTick: TAlignedEdit
+      Left = 80
+      Top = 18
+      Width = 40
+      Height = 21
+      ImeName = 'Microsoft Office IME 2007'
+      TabOrder = 4
+      Text = '5'
+      Alignment = clRight
+      AlignType = atNumber
+    end
+    object edtLosTick: TAlignedEdit
+      Tag = 1
+      Left = 80
+      Top = 39
+      Width = 40
+      Height = 21
+      ImeName = 'Microsoft Office IME 2007'
+      TabOrder = 5
+      Text = '5'
+      Alignment = clRight
+      AlignType = atNumber
+    end
+    object GroupBox5: TGroupBox
+      Left = 142
+      Top = 7
+      Width = 134
+      Height = 62
+      Caption = #51452#47928#50976#54805
+      TabOrder = 6
+      object rbMarket: TRadioButton
+        Left = 5
+        Top = 18
+        Width = 58
+        Height = 17
+        Caption = #49884#51109#44032
+        Checked = True
+        TabOrder = 0
+        TabStop = True
+      end
+      object rbHoga: TRadioButton
+        Left = 4
+        Top = 40
+        Width = 70
+        Height = 17
+        Caption = #49345#45824#54840#44032
+        TabOrder = 1
+      end
+      object udLiqTick: TUpDown
+        Left = 113
+        Top = 38
+        Width = 16
+        Height = 21
+        Associate = edtLiqTick
+        Max = 10
+        TabOrder = 2
+      end
+      object edtLiqTick: TAlignedEdit
+        Tag = 2
+        Left = 73
+        Top = 38
+        Width = 40
+        Height = 21
+        ImeName = 'Microsoft Office IME 2007'
+        TabOrder = 3
+        Text = '0'
+        Alignment = clRight
+        AlignType = atNumber
+      end
+    end
+  end
+  object GroupBox1: TGroupBox
+    Left = 283
+    Top = 2
+    Width = 110
+    Height = 41
+    Caption = 'STOP '#51452#47928
+    TabOrder = 1
+    object Label8: TLabel
+      Left = 15
+      Top = 20
+      Width = 35
+      Height = 13
+      Caption = #48276#50948' '#177
+    end
+    object udStopTick: TUpDown
+      Left = 89
+      Top = 14
+      Width = 16
+      Height = 21
+      Associate = edtStopTick
+      Min = -10
+      Max = 10
+      Position = 1
+      TabOrder = 0
+    end
+    object edtStopTick: TAlignedEdit
+      Tag = 3
+      Left = 63
+      Top = 14
+      Width = 28
+      Height = 21
+      ImeName = 'Microsoft Office IME 2007'
+      TabOrder = 1
+      Text = '1'
+      Alignment = clRight
+      AlignType = atNumber
+    end
+  end
+end

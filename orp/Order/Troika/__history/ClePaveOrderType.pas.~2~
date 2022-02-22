@@ -1,0 +1,29 @@
+unit ClePaveOrderType;
+
+interface
+
+type
+
+  TLayOrderParam = record
+    UseL : boolean;
+    LStartPrc : double;
+    LCnlPrc   : double;
+
+    UseSS : boolean;
+    SStartPrc: double;
+    SCnlPrc  : double;
+
+    OrdQty  : integer;
+    OrdGap  : integer;
+    OrdCnt  : integer;
+
+    LossVol : integer;
+    LossPer : integer;
+
+    EndTime : TDateTime;
+  end;
+
+
+implementation
+
+end.

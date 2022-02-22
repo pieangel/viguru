@@ -1,0 +1,89 @@
+unit GAppForms;
+
+interface
+
+const
+
+  ID_GURU_MAIN    = 10000;
+
+  ID_SKEW         = 1000;
+  ID_ORDER_LIST   = 1002;
+
+  ID_POSITION_LIST= 1003;
+  ID_ORDER        = 1004;
+  ID_VIRTUAL_TRADE= 1005;
+  ID_ORDERBOARD   = 1006;
+  ID_SYSTEM_ORDER = 1007;
+
+  ID_ACNT_DEPOSIT = 1008;
+  ID_ACNT_PASSWORD = 1009;
+//  ID_POS_MNGR      = 1010;
+
+
+  ID_BAN_HULT     = 1024;
+
+  ID_HLT          = 1026;
+  ID_RATIOS       = 1027;
+  ID_VOLS         = 1028;
+  ID_PAVE_ORDER   = 1029;
+
+
+  ID_MINI_POSITION_LIST  = 1030;
+  ID_SHEEP_BUY    = 1031;
+  ID_VOL_INVESTOR = 1032;
+  
+
+  ID_STOP_LIST    = 1040;
+
+  ID_QUOTE_SELECT     = 2000;
+  ID_QUOTE_SIMULATION = 2001;
+  //ID_QUOTE_REQUEST    = 2002;
+  ID_SAME_CANCEL      = 2003;
+  ID_MANY_ORDER       = 2004;
+  ID_ORDER_EXTRACT    = 2005;
+  ID_WHOLESALE        = 2006;
+  ID_FOFILLVOL        = 2007;
+  ID_ENTRYPRICE       = 2008;
+  ID_UPDOWN           = 2009;
+  ID_LARGEORDER       = 2010;
+
+  ID_BEAR = 3001;
+  ID_BULL = 3002;
+  //ID_AUTO = 3003;
+
+  ID_PROTECT  = 3005;
+  ID_FRONTQUOTING = 3006;
+  ID_QUOTING  = 3007;
+  ID_JANGJUNG = 3008;
+  ID_CURRENT_TIME = 3009;
+  ID_SIMPLE_CATCH = 3010;
+  ID_SYNCTHESIZE  = 3011;
+
+  // 전략 화면..순서대로..정의한다.
+  ID_FUND_ORDERBOARD = 40001;
+
+  /// 원달 1050 부터
+  ID_US_IN_123  = 40002;
+  ID_USD_H1  = 40003;
+  ID_USD_H2  = 40004;
+  ID_US_I2   = 40009;
+
+  ID_HULT        = 40005;
+  ID_TREND_CNT_INVEST = 40006;
+  ID_STRANGLE = 40007;
+  ID_BAMBOO = 40008;
+
+  ID_FUND_MINI_POS   = 40010;
+  ID_MULTI_ACNT      = 40011;
+
+  ID_SBO             = 40012;
+  ID_INVEST_STRANGLE  = 40015;
+  ID_UNDER_STRANGLE   = 40016;
+  ///
+  ID_BOND_TREND       = 40017;
+
+  ID_SUMUL  = 90000;
+
+implementation
+
+end.

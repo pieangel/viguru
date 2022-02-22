@@ -1,0 +1,37 @@
+unit FmLiqSet;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, 
+  Dialogs, StdCtrls, UAlignedEdit, ComCtrls;
+
+type
+  TFrmLiqSet = class(TFrame)
+    GroupBox3: TGroupBox;
+    cbPrfLiquid: TCheckBox;
+    cbLosLiquid: TCheckBox;
+    udPrfTick: TUpDown;
+    udLosTick: TUpDown;
+    edtPrfTick: TAlignedEdit;
+    edtLosTick: TAlignedEdit;
+    GroupBox5: TGroupBox;
+    rbMarket: TRadioButton;
+    rbHoga: TRadioButton;
+    udLiqTick: TUpDown;
+    edtLiqTick: TAlignedEdit;
+    GroupBox1: TGroupBox;
+    Label8: TLabel;
+    udStopTick: TUpDown;
+    edtStopTick: TAlignedEdit;
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+implementation
+
+{$R *.dfm}
+
+end.

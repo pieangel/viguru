@@ -1,0 +1,104 @@
+unit FServerMessage;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms, CommCtrl,
+  Dialogs, ComCtrls;
+
+type
+  TFrmServerMessage = class(TForm)
+    ListView1: TListView;
+    procedure ListView1DrawItem(Sender: TCustomListView; Item: TListItem;
+      Rect: TRect; State: TOwnerDrawState);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  FrmServerMessage: TFrmServerMessage;
+
+implementation
+
+uses
+  GleConsts
+  ;
+
+
+{$R *.dfm}
+
+procedure TFrmServerMessage.ListView1DrawItem(Sender: TCustomListView;
+  Item: TListItem; Rect: TRect; State: TOwnerDrawState);
+var
+  i, iX, iY, iLeft : Integer;
+  aSize : TSize;
+  ListView : TListView;
+begin
+
+  if (Item.Data = nil) then Exit;
+  //
+  Rect.Bottom := Rect.Bottom-1;       ;
+  ListView := Sender as TListView;
+  //
+  with ListView.Canvas do
+  begin
+    //-- color
+    if (odSelected in State) {or (odFocused in State)} then
+    begin
+      Brush.Color := SELECTED_COLOR;
+      Font.Color := clBlack;
+    end else
+    begin
+      Font.Color := clBlack;
+      if Item.Index mod 2 = 1 then
+        Brush.Color := EVEN_COLOR
+      else
+        Brush.Color := ODD_COLOR;
+    end;
+    //-- background
+    FillRect(Rect);
+    //-- icon
+    aSize := TextExtent('9');
+    iY := Rect.Top + (Rect.Bottom - Rect.Top - aSize.cy) div 2;
+    if (Item.ImageIndex >=0) and (ListView.SmallImages <> nil) then
+    begin
+      // aListView.SmallImages.BkColor := Brush.Color;
+      ListView.SmallImages.Draw(ListView.Canvas, Rect.Left+1, Rect.Top,
+                              Item.ImageIndex);
+    end;
+    //-- caption
+    if Item.Caption <> '' then
+        TextRect(
+            Classes.Rect(0,
+              Rect.Top, ListView_GetColumnWidth(ListView.Handle,0), Rect.Bottom),
+            Rect.Left + 2, iY, Item.Caption);
+    //-- subitems
+    iLeft := Rect.Left;
+    for i:=0 to Item.SubItems.Count-1 do
+    begin
+      if i+1 >= ListView.Columns.Count then Break;
+      iLeft := iLeft + ListView_GetColumnWidth(ListView.Handle,i);
+
+      if Item.SubItems[i] = '' then Continue;
+      aSize := TextExtent(Item.SubItems[i]);
+
+      case ListView.Columns[i+1].Alignment of
+        taLeftJustify :  iX := iLeft + 2;
+        taCenter :       iX := iLeft +
+             (ListView_GetColumnWidth(ListView.Handle,i+1)-aSize.cx) div 2;
+        taRightJustify : iX := iLeft +
+              ListView_GetColumnWidth(ListView.Handle,i+1) - 2 - aSize.cx;
+        else iX := iLeft + 2; // redundant coding
+      end;
+      TextRect(
+          Classes.Rect(iLeft, Rect.Top,
+             iLeft + ListView_GetColumnWidth(ListView.Handle,i+1), Rect.Bottom),
+          iX, iY, Item.SubItems[i]);
+    end;
+  end;
+
+end;
+
+end.

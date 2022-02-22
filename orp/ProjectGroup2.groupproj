@@ -1,0 +1,44 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{f69a11ef-cd59-4591-921f-6e9d9a5db725}</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <Projects Include="..\ocx\vi\ViOcxPackage.dproj" />
+    <Projects Include="ViGuruApi.dproj" />
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Default.Personality</Borland.Personality>
+    <Borland.ProjectType />
+    <BorlandProject>
+  <BorlandProject xmlns=""> <Default.Personality> </Default.Personality> </BorlandProject></BorlandProject>
+  </ProjectExtensions>
+  <Target Name="ViGuruApi">
+    <MSBuild Projects="ViGuruApi.dproj" Targets="" />
+  </Target>
+  <Target Name="ViGuruApi:Clean">
+    <MSBuild Projects="ViGuruApi.dproj" Targets="Clean" />
+  </Target>
+  <Target Name="ViGuruApi:Make">
+    <MSBuild Projects="ViGuruApi.dproj" Targets="Make" />
+  </Target>
+  <Target Name="ViOcxPackage">
+    <MSBuild Projects="..\ocx\vi\ViOcxPackage.dproj" Targets="" />
+  </Target>
+  <Target Name="ViOcxPackage:Clean">
+    <MSBuild Projects="..\ocx\vi\ViOcxPackage.dproj" Targets="Clean" />
+  </Target>
+  <Target Name="ViOcxPackage:Make">
+    <MSBuild Projects="..\ocx\vi\ViOcxPackage.dproj" Targets="Make" />
+  </Target>
+  <Target Name="Build">
+    <CallTarget Targets="ViGuruApi;ViOcxPackage" />
+  </Target>
+  <Target Name="Clean">
+    <CallTarget Targets="ViGuruApi:Clean;ViOcxPackage:Clean" />
+  </Target>
+  <Target Name="Make">
+    <CallTarget Targets="ViGuruApi:Make;ViOcxPackage:Make" />
+  </Target>
+  <Import Condition="Exists('$(MSBuildBinPath)\Borland.Group.Targets')" Project="$(MSBuildBinPath)\Borland.Group.Targets" />
+</Project>

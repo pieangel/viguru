@@ -1,0 +1,129 @@
+unit LemonEngine;
+
+interface
+
+uses
+  Classes,
+
+  CleSymbolCore, CleQuoteBroker, CleHolidays,
+  CleTradeCore, CleTradeBroker,
+  CleFormBroker,
+  CleTickRatioControls,
+  CleKeyGen,
+  GleTypes,
+  SyntheticFuturesService ,
+  CleImportCode,
+  CleFormManager,
+  CleTimers
+  ;
+
+type
+  TLemonEngine = class
+  private
+    FAppStatus: TAppStatus;
+    FGiManager: TTickRatioControls;
+    FSyncFuture: TSyntheticFuturesService;
+
+    FErrCodes: TErrCodeManager;
+    FFormManager: TFrontManager;
+    FTimers: TTimerItems;
+  protected
+      // core objects
+    FSymbolCore: TSymbolCore;
+    FTradeCore: TTradeCore;
+    FQuoteBroker: TQuoteBroker;
+    FTradeBroker: TTradeBroker;
+    FHolidays: THolidays;
+      // env objects
+    FFormBroker: TFormBroker;
+      // utility objects
+    FKeyGenerator: TKeyGenerator;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure CreateSyncFuture;
+
+      // core objects
+    property SymbolCore: TSymbolCore read FSymbolCore;
+    property QuoteBroker: TQuoteBroker read FQuoteBroker;
+    property TradeCore: TTradeCore read FTradeCore;
+    property TradeBroker: TTradeBroker read FTradeBroker;
+    property Holidays: THolidays read FHolidays;
+
+    property SyncFuture : TSyntheticFuturesService read FSyncFuture write FSyncFuture;
+    property FormManager: TFrontManager read FFormManager write FFormManager;
+      // env objects
+    property FormBroker: TFormBroker read FFormBroker;
+
+      // utility objects
+    property KeyGenerator: TKeyGenerator read FKeyGenerator;
+    property AppStatus : TAppStatus read FAppStatus write FAppStatus;
+
+    property ErrCodes  : TErrCodeManager read FErrCodes;
+    property Timers    : TTimerItems read FTimers;
+
+
+
+  end;
+
+implementation
+
+{ TLemonEngine }
+
+constructor TLemonEngine.Create;
+begin
+
+
+  FSymbolCore := TSymbolCore.Create;
+  FQuoteBroker := TQuoteBroker.Create;
+  FHolidays := THolidays.Create;
+  FTradeCore := TTradeCore.Create;
+  FTradeBroker := TTradeBroker.Create;
+
+  FFormBroker := TFormBroker.Create;
+
+  FKeyGenerator := TKeyGenerator.Create;
+
+  FTradeCore.Orders.OnNew := FTradeBroker.OrderAdded;
+    //
+  FQuoteBroker.OnFind := FSymbolCore.Symbols.FindCode;
+  FTradeBroker.TradeCore := FTradeCore;
+  FFormManager:= TFrontManager.Create;
+
+  FErrCodes   := TErrCodeManager.Create;
+  FErrCodes.LoadIni;
+
+  FTimers:= TTimerItems.Create;
+  Appstatus := asNone;
+end;
+
+
+procedure TLemonEngine.CreateSyncFuture;
+begin
+  FSyncFuture := TSyntheticFuturesService.Create;
+end;
+
+
+destructor TLemonEngine.Destroy;
+begin
+  FTimers.Free;
+  FErrCodes.Free;
+  if FSyncFuture <> nil then
+    FSyncFuture.Free;
+  FKeyGenerator.Free;
+
+
+  FFormBroker.Free;
+
+  FTradeBroker.Free;
+  FTradeCore.Free;
+  FHolidays.Free;
+  FFormManager.Free;
+  FQuoteBroker.Free;
+  FSymbolCore.Free;
+  
+  inherited;
+end;
+
+end.
+

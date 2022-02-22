@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2016-02-25 10:40:28.773.pas,C:\Users\Administrator\Documents\RAD Studio\Projects\Unit2.pas=C:\Users\Administrator\Documents\RAD Studio\Projects\Updater\CleFTPConnector.pas</Transaction>
+    <Transaction>2016-02-25 10:40:40.764.pas,C:\Users\Administrator\Documents\RAD Studio\Projects\Unit1.pas=C:\Users\Administrator\Documents\RAD Studio\Projects\Updater\Unit1.pas</Transaction>
+    <Transaction>2016-02-25 10:40:40.764.dfm,C:\Users\Administrator\Documents\RAD Studio\Projects\Unit1.dfm=C:\Users\Administrator\Documents\RAD Studio\Projects\Updater\Unit1.dfm</Transaction>
+    <Transaction>2016-02-25 10:40:45.217.dproj,C:\Users\Administrator\Documents\RAD Studio\Projects\Project1.dproj=C:\Users\Administrator\Documents\RAD Studio\Projects\Updater\Updater.dproj</Transaction>
+    <Transaction>2016-02-25 11:02:18.209.pas,C:\Users\Administrator\Documents\RAD Studio\Projects\Updater\Unit2.pas=C:\Users\Administrator\Documents\RAD Studio\Projects\Updater\UIni.pas</Transaction>
+    <Transaction>2016-02-25 15:23:44.764.pas,C:\Users\Administrator\Documents\RAD Studio\Projects\Updater\CleFTPConnector.pas=</Transaction>
+    <Transaction>2016-02-29 08:45:02.178.pas,C:\Project\ExGuruApi\Updater\Unit2.pas=C:\Project\ExGuruApi\Updater\CleParsers.pas</Transaction>
+    <Transaction>2016-02-29 09:18:04.253.pas,C:\Project\ExGuruApi\Updater\CleParsers.pas=</Transaction>
+    <Transaction>2016-03-02 08:36:05.105.dproj,C:\Project\ExGuruApi_1\Updater\Updater.dproj=C:\Project\ExGuruApi_1\Updater\grLauncher.dproj</Transaction>
+  </Transactions>
+</BorlandProject>

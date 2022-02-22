@@ -1,0 +1,208 @@
+object FrmPositionMngr: TFrmPositionMngr
+  Left = 0
+  Top = 0
+  Caption = #49436#48652#44228#51340' '#54252#51648#49496#44288#47532
+  ClientHeight = 508
+  ClientWidth = 478
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  PixelsPerInch = 96
+  TextHeight = 13
+  object Panel1: TPanel
+    Left = 0
+    Top = 0
+    Width = 478
+    Height = 28
+    Align = alTop
+    BevelInner = bvLowered
+    TabOrder = 0
+    object lbAcntName: TLabel
+      Left = 158
+      Top = 8
+      Width = 3
+      Height = 13
+    end
+    object ComboBoAccount: TComboBox
+      Left = 4
+      Top = 4
+      Width = 149
+      Height = 21
+      Style = csDropDownList
+      ImeName = 'Microsoft Office IME 2007'
+      ItemHeight = 13
+      TabOrder = 0
+      OnChange = ComboBoAccountChange
+    end
+    object Button1: TButton
+      Left = 418
+      Top = 3
+      Width = 57
+      Height = 22
+      Caption = #51312' '#54924
+      TabOrder = 1
+    end
+  end
+  object Panel2: TPanel
+    Left = 0
+    Top = 28
+    Width = 202
+    Height = 480
+    Align = alLeft
+    TabOrder = 1
+    object lvAcnt: TListView
+      Left = 1
+      Top = 1
+      Width = 200
+      Height = 194
+      Align = alTop
+      Columns = <
+        item
+          Caption = #49436#48652#44228#51340#53076#46300
+          Width = 90
+        end
+        item
+          Caption = #49436#48652#44228#51340#47749
+          Width = 100
+        end>
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -12
+      Font.Name = #44404#47548#52404
+      Font.Style = []
+      OwnerData = True
+      OwnerDraw = True
+      ParentFont = False
+      TabOrder = 0
+      ViewStyle = vsReport
+      OnClick = lvAcntClick
+      OnData = lvAcntData
+      OnDrawItem = lvAcnt2DrawItem
+    end
+    object sg1: TStringGrid
+      Left = 1
+      Top = 195
+      Width = 200
+      Height = 284
+      Align = alClient
+      ColCount = 4
+      Ctl3D = False
+      DefaultRowHeight = 19
+      FixedCols = 0
+      RowCount = 2
+      ParentCtl3D = False
+      TabOrder = 1
+      OnDrawCell = sg1DrawCell
+      OnMouseDown = sg1MouseDown
+      OnMouseUp = sg1MouseUp
+      ColWidths = (
+        22
+        78
+        40
+        38)
+    end
+    object CheckBox1: TCheckBox
+      Left = 5
+      Top = 197
+      Width = 16
+      Height = 17
+      TabOrder = 2
+      OnClick = CheckBox2Click
+    end
+  end
+  object Panel3: TPanel
+    Left = 276
+    Top = 28
+    Width = 202
+    Height = 480
+    Align = alRight
+    TabOrder = 2
+    object lvAcnt2: TListView
+      Tag = 1
+      Left = 1
+      Top = 1
+      Width = 200
+      Height = 194
+      Align = alTop
+      Columns = <
+        item
+          Caption = #49436#48652#44228#51340#53076#46300
+          Width = 90
+        end
+        item
+          Caption = #49436#48652#44228#51340#47749
+          Width = 100
+        end>
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -12
+      Font.Name = #44404#47548#52404
+      Font.Style = []
+      OwnerData = True
+      OwnerDraw = True
+      ParentFont = False
+      TabOrder = 0
+      ViewStyle = vsReport
+      OnClick = lvAcntClick
+      OnData = lvAcntData
+      OnDrawItem = lvAcnt2DrawItem
+      ExplicitTop = 3
+    end
+    object sg2: TStringGrid
+      Left = 1
+      Top = 195
+      Width = 200
+      Height = 284
+      Align = alClient
+      ColCount = 4
+      Ctl3D = False
+      DefaultRowHeight = 19
+      FixedCols = 0
+      RowCount = 2
+      ParentCtl3D = False
+      TabOrder = 1
+      OnDrawCell = sg1DrawCell
+      OnMouseDown = sg1MouseDown
+      OnMouseUp = sg1MouseUp
+      ColWidths = (
+        22
+        78
+        40
+        38)
+    end
+    object CheckBox2: TCheckBox
+      Tag = 1
+      Left = 5
+      Top = 197
+      Width = 16
+      Height = 17
+      TabOrder = 2
+      OnClick = CheckBox2Click
+    end
+  end
+  object Button2: TButton
+    Left = 208
+    Top = 282
+    Width = 63
+    Height = 31
+    Caption = '--> '
+    TabOrder = 3
+    OnClick = Button2Click
+  end
+  object Button3: TButton
+    Left = 207
+    Top = 394
+    Width = 63
+    Height = 31
+    Caption = '<--'
+    TabOrder = 4
+    OnClick = Button3Click
+  end
+end

@@ -1,0 +1,18 @@
+unit CleParkParam;
+
+interface
+
+type
+  TSBO_Param = record
+    OrdQty    : integer;
+    EntryCnt  : integer;
+    StopPer   : integer;
+    BasePrc   : double;
+    //
+    Endtime   : TDateTime;
+    EntEndtime: TDateTime;
+  end;
+
+implementation
+
+end.

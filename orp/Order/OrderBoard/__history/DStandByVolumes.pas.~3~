@@ -1,0 +1,95 @@
+unit DStandByVolumes;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Grids, ComCtrls, ExtCtrls;
+
+type
+  TStandByVolumes = class(TForm)
+    ButtonOK: TButton;
+    GroupBox1: TGroupBox;
+    edtProfitCount: TLabeledEdit;
+    udProfitCount: TUpDown;
+    edtProfit1th: TEdit;
+    edtProfit2th: TEdit;
+    edtProfit3th: TLabeledEdit;
+    GroupBox2: TGroupBox;
+    rdProfitDiv: TRadioButton;
+    edtDivQty: TLabeledEdit;
+    udDivQty: TUpDown;
+    rdProfitFix: TRadioButton;
+    edtFixedQty: TEdit;
+    udFixedQty: TUpDown;
+    GroupBox3: TGroupBox;
+    edtLossCutCount: TLabeledEdit;
+    edtLossCut1th: TEdit;
+    edtLossCut2th: TEdit;
+    edtLossCut3th: TLabeledEdit;
+    GroupBox4: TGroupBox;
+    rdLossCutDiv: TRadioButton;
+    LabeledEdit4: TLabeledEdit;
+    UpDown2: TUpDown;
+    rdLossCutFix: TRadioButton;
+    Edit5: TEdit;
+    UpDown3: TUpDown;
+    udLossCutCount: TUpDown;
+    Label1: TLabel;
+    cbUseOneTimeProfit: TCheckBox;
+    cbUseOneTimeLossCut: TCheckBox;
+    procedure ButtonOKClick(Sender: TObject);
+    procedure StringGridVolumesKeyPress(Sender: TObject; var Key: Char);
+    procedure StringGridVolumesMouseWheelDown(Sender: TObject;
+      Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
+    procedure StringGridVolumesMouseWheelUp(Sender: TObject; Shift: TShiftState;
+      MousePos: TPoint; var Handled: Boolean);
+    procedure FormCreate(Sender: TObject);
+    procedure edtFixedQtyKeyPress(Sender: TObject; var Key: Char);
+  private
+    procedure SaveQtyItem;
+    { Private declarations }
+  public
+    { Public declarations }
+    FillMode  : boolean;
+    procedure SetMode( bFill : boolean );
+  end;
+
+var
+  StandByVolumes: TStandByVolumes;
+
+implementation
+
+{$R *.dfm}
+
+procedure TStandByVolumes.ButtonOKClick(Sender: TObject);
+begin
+  //SaveQtyItem;
+  ModalResult := mrOK;
+end;
+
+procedure TStandByVolumes.edtFixedQtyKeyPress(Sender: TObject; var Key: Char);
+begin
+  if not (Key in ['0'..'9',#13]) then
+    Key := #0;
+end;
+
+procedure TStandByVolumes.FormCreate(Sender: TObject);
+begin
+  FillMode  := false;
+end;
+
+procedure TStandByVolumes.SaveQtyItem;
+begin
+
+end;
+
+
+procedure TStandByVolumes.SetMode(bFill: boolean);
+begin
+  FillMode  := bFill;
+
+end;
+
+
+end.

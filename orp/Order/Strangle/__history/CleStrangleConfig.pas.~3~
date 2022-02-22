@@ -1,0 +1,32 @@
+unit CleStrangleConfig;
+
+interface
+
+type
+
+  TOrderMethodType = ( omBuy, omSell, omSpBuy, omSpSell );
+
+  TInvestStrangleParam = record
+    OrdQty     : integer;
+    EntryCnt   : integer;
+    ListAmt    : double;
+
+    Endtime : TDateTime;
+    StartTime : TDateTime;
+
+    UseCnt : boolean;
+    UseInvest: boolean;
+    UseLiq   : boolean;
+
+    OrderMethod : TOrderMethodType;
+
+    Ivt1Plue : array [0..4] of boolean;
+    Ivt1Minus : array [0..4] of boolean;
+
+    Ivt2Plue : array [0..4] of boolean;
+    Ivt2Minus : array [0..4] of boolean;
+  end;
+
+implementation
+
+end.

@@ -1,0 +1,297 @@
+unit CleAutoStopOrders;
+
+interface
+
+uses
+  Classes, SysUtils,
+
+  CleAccounts, CleOrders, CleSymbols, ClePositions,
+
+  CleQuoteBroker, CleFills,
+
+  CleStopOrders,
+
+  GleTypes
+
+  ;
+
+type
+
+  TNewAutoStopOrderEvent =  function( Sender : TObject; dPrice : double; iQty , iSide: integer ) : TStopOrderItem of Object;
+
+  TAutoStopOrder = class( TCollectionItem )
+  public
+    PrfStop : TStopOrderItem;
+    LosStop : TStopOrderItem;
+    IsBoth  : boolean;    // 쌍으로 있는지...한넘만 있는지.
+    Constructor Create( aColl : TCollection ); override;
+  end;
+
+  TAutoStopOrders = class( TCollection )
+  private
+    FUseLos: boolean;
+    FUseAvg: boolean;
+    FUsePrf: boolean;
+    FPrfTick: integer;
+    FLosTick: integer;
+    FPosition: TPosition;
+    FStopOrder: TStopOrder;
+    FOrdTick: integer;
+    FUseMarket: boolean;
+    FNewAutoStopOrderEvent: TNewAutoStopOrderEvent;
+    function GetAutoStopOrder(i: integer): TAutoStopOrder;
+    procedure SetPosition(const Value: TPosition);
+    procedure DoStopOrder(aOrder: TOrder);
+    procedure DoEachStopOrder(aOrder: TOrder);
+  public
+    Constructor Create ;
+    Destructor  Destroy; override;
+
+    procedure OnFill( aOrder : TOrder );
+    procedure OnQuote( aQuote: TQuote );
+    procedure OnStop( aStop : TStopOrderITem );
+    function New( bBoth : boolean ) : TAutoStopOrder;
+    procedure SetParam(  bAvg, bPrf, bLos, bMarket : boolean;  iPrf, iLos, iTick : integer );
+
+
+    property Position : TPosition read FPosition write SetPosition;
+    property StopOrder: TStopOrder read FStopOrder write FStopOrder;
+
+    property UseAvg : boolean read FUseAvg;
+    property UsePrf : boolean read FUsePrf;
+    property UseLos : boolean read FUseLos;
+    property PrfTick: integer read FPrfTick;
+    property LosTick: integer read FLosTick;
+
+    property UseMarket : boolean read FUseMarket;
+    property OrdTick   : integer read FOrdTick;
+
+    property AutoStopOrder[i:integer] : TAutoStopOrder read GetAutoStopOrder; default;
+    property NewAutoStopOrderEvent : TNewAutoStopOrderEvent read FNewAutoStopOrderEvent write FNewAutoStopOrderEvent;
+  end;
+
+implementation
+
+uses
+  GAppEnv, GleLib, GleConsts, CleKrxSymbols
+  ;
+
+{ TAutoStopOrder }
+
+constructor TAutoStopOrder.Create(aColl: TCollection);
+begin
+  inherited Create( aColl );
+  PrfStop := nil;
+  LosStop := nil;
+  IsBoth  := true;
+end;
+
+{ TAutoStopOrders }
+
+constructor TAutoStopOrders.Create;
+begin
+  inherited Create( TAutoStopOrder );
+  FUseAvg := true;
+
+  FUseLos := false;
+  FUsePrf := false;
+  FPrfTick:=5;
+  FLosTick:=5;
+end;
+
+destructor TAutoStopOrders.Destroy;
+begin
+
+  inherited;
+end;
+
+function TAutoStopOrders.GetAutoStopOrder(i: integer): TAutoStopOrder;
+begin
+  if ( i < 0 ) or ( i >= Count ) then
+    Result := nil
+  else
+    Result := Items[i] as TAutoStopOrder;
+end;
+
+function TAutoStopOrders.New(bBoth: boolean): TAutoStopOrder;
+begin
+  Result := Add as TAutoStopOrder;
+  Result.IsBoth := bBoth;
+end;
+
+procedure TAutoStopOrders.OnFill(aOrder: TOrder);
+begin
+
+  if ( not FUseLos ) and ( not FUsePrf ) then Exit;
+
+  if FPosition = nil then
+    FPosition := gEnv.Engine.TradeCore.Positions.Find( aOrder.Account, aOrder.Symbol )
+  else if ( FPosition.Symbol <> aOrder.Symbol ) or
+          ( FPosition.Account <> aOrder.Account) then
+          Exit;
+  // 잔고 0
+  if ( FPosition = nil ) or ( FPosition.Volume = 0 ) or ( FStopOrder = nil ) then Exit;
+  // 청산 체결
+  if (( FPosition.Volume > 0 ) and ( aOrder.Side < 0 )) or
+     (( FPosition.Volume < 0 ) and ( aOrder.Side > 0 )) then Exit;
+
+  if ( FStopOrder.Account <> aOrder.Account ) or ( FStopOrder.Symbol <> aOrder.Symbol ) then
+  begin
+    gEnv.EnvLog( WIN_TEST, Format('object is error %s <> %s,  %s <> %s', [
+     FStopOrder.Account.Code, aOrder.Account.Code, FStopOrder.Symbol.ShortCode , aOrder.Symbol.ShortCode])    );
+    Exit;
+  end;
+
+  DoStopOrder( aOrder );
+
+end;
+
+procedure TAutoStopOrders.OnQuote(aQuote: TQuote);
+begin
+
+end;
+
+procedure TAutoStopOrders.OnStop(aStop: TStopOrderITem);
+var
+  aITem : TAutoStopOrder;
+begin
+  // 같은 썅을 지워야 한다..
+  aItem := GetAutoStopOrder( Count -1 );
+  if aItem = nil then Exit;
+
+  if aItem.PrfStop = aStop then
+  begin
+    aItem.PrfStop := nil;
+  end;
+
+  if aItem.LosStop = aStop then
+  begin
+    aItem.LosStop := nil;
+  end;
+
+end;
+
+procedure TAutoStopOrders.SetParam(bAvg, bPrf, bLos, bMarket : boolean;
+                                   iPrf, iLos, iTick : integer);
+begin
+
+  FUseAvg     := bAvg;
+  FUsePrf     := bPrf;
+  FUseLos     := bLos;
+  FPrfTick    := iPrf;
+  FLosTick    := iLos;
+
+  FUseMarket  := bMarket;
+  FOrdTick    := iTick;
+end;
+
+procedure TAutoStopOrders.SetPosition(const Value: TPosition);
+begin
+  FPosition := Value;
+end;
+
+const
+EPSILON = 1.0e-10;
+
+procedure TAutoStopOrders.DoStopOrder( aOrder : TOrder );
+var
+  aItem : TAutoStopOrder;
+  aFill : TFill;
+  iIncQty, iQty  : integer;
+  dAvgPrc, dPrfPrc, dLosPrc: double;
+  iSide : integer;
+  stSrc, StDec : string;
+  aStop : TStopOrderItem;
+begin
+
+  aFill := TFill( aOrder.Fills.Last );
+
+  iQty  := abs( aFill.Volume );
+  iIncQty := 0;
+
+  dAvgPrc := Round( FPosition.AvgPrice / aOrder.Symbol.Spec.TickSize + EPSILON) *
+                  aOrder.Symbol.Spec.TickSize;
+
+  if FPosition.Volume > 0 then begin
+    dLosPrc := dAvgPrc  - ( aOrder.Symbol.Spec.TickSize * FLosTick );
+    dPrfPrc := dAvgPrc  + ( aOrder.Symbol.Spec.TickSize * FPrfTick );
+    iSide  := -1;
+  end
+  else begin
+    dPrfPrc := dAvgPrc  - ( aOrder.Symbol.Spec.TickSize * FPrfTick );
+    dLosPrc := dAvgPrc  + ( aOrder.Symbol.Spec.TickSize * FLosTick );
+    iSide  := 1;
+  end;
+
+  if Count > 0 then
+    aItem := GetAutoStopOrder( Count -1 )
+  else
+    aItem := New( FUsePrf = FUseLos );
+
+  // 이익...
+  if FUsePrf then
+  begin
+    if (aItem.PrfStop <> nil ) and ( aItem.PrfStop.Side = iSide ) then begin
+      iIncQty := aItem.PrfStop.OrdQty;
+      FStopOrder.Cancel( aItem.PrfStop );
+      aItem.PrfStop := nil;
+    end
+    else
+      iIncQty := 0;
+
+    iQty  := abs( aFill.Volume ) + iIncQty;
+    if iQty > abs( FPosition.Volume ) then
+      iQty :=  abs( FPosition.Volume );
+
+    aStop := nil;
+    if Assigned( FNewAutoStopOrderEvent ) then
+      aStop := FNewAutoStopOrderEvent( Self, dPrfPrc, iQty, iSide );
+    if aStop = nil then Exit;
+
+    if FUseMarket then
+      aStop.pcValue := pcMarket
+    else
+      aStop.pcValue := pcLimit;
+      
+    aStop.Tick    := FOrdTick;
+    aStop.GroupID := aFill.FillNo;
+    aItem.PrfStop := aStop;
+  end;
+
+  // 손실...
+  if FUseLos then
+  begin
+    if (aItem.LosStop <> nil ) and ( aItem.LosStop.Side = iSide ) then begin
+      iIncQty := aItem.LosStop.OrdQty;  
+      FStopOrder.Cancel( aItem.LosStop );
+      aItem.LosStop := nil;
+    end
+    else
+      iIncQty := 0;
+
+    iQty  := abs( aFill.Volume ) + iIncQty;
+    if iQty > abs( FPosition.Volume ) then
+      iQty :=  abs( FPosition.Volume );    
+
+    aStop := nil;
+    if Assigned( FNewAutoStopOrderEvent ) then
+      aStop := FNewAutoStopOrderEvent( Self, dLosPrc, iQty, iSide );
+    if aStop = nil then Exit;
+
+    if FUseMarket then
+      aStop.pcValue := pcMarket
+    else
+      aStop.pcValue := pcLimit;
+    aStop.Tick    := FOrdTick;
+    aStop.GroupID := aFill.FillNo;
+    aItem.LosStop := aStop;
+  end;
+
+end;
+
+procedure TAutoStopOrders.DoEachStopOrder( aOrder : TOrder );
+begin
+
+end;
+
+end.

@@ -1,0 +1,54 @@
+object FrmOrderExtract: TFrmOrderExtract
+  Left = 0
+  Top = 0
+  Caption = #51452#47928#52628#52636
+  ClientHeight = 417
+  ClientWidth = 264
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  OnClose = FormClose
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 13
+  object Panel1: TPanel
+    Left = 0
+    Top = 0
+    Width = 264
+    Height = 30
+    Align = alTop
+    TabOrder = 0
+    ExplicitWidth = 287
+    object Button1: TButton
+      Left = 162
+      Top = -1
+      Width = 75
+      Height = 25
+      Caption = 'Button1'
+      TabOrder = 0
+      OnClick = Button1Click
+    end
+  end
+  object sgInfo: TStringGrid
+    Left = 0
+    Top = 30
+    Width = 264
+    Height = 387
+    Align = alClient
+    ColCount = 6
+    DefaultColWidth = 40
+    DefaultRowHeight = 17
+    DefaultDrawing = False
+    FixedCols = 0
+    RowCount = 2
+    ScrollBars = ssVertical
+    TabOrder = 1
+    OnDrawCell = sgInfoDrawCell
+    ExplicitWidth = 325
+    ExplicitHeight = 347
+  end
+end

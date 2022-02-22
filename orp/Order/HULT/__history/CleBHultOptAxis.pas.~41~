@@ -1,0 +1,1255 @@
+unit CleBHultOptAxis;
+
+interface
+uses
+  Classes, SysUtils, Math, DateUtils, Dialogs,
+  CleAccounts, CleSymbols, ClePositions, CleOrders, CleFills, CleFrontOrder,
+  UObjectBase, UPaveConfig, UPriceItem,  CleQuoteTimers,
+  CleDistributor, CleQuoteBroker, CleKrxSymbols, CleCircularQueue, CleHnVHultManager,
+  GleTypes, GleConsts, CleStrategyStore, CleVirtualHult;
+
+const
+  ENT_EVENT  = 1;
+  STOP_EVENT = 0;
+  LIQ_EVENT  = 100;
+  LC_EVENT   = -100;
+
+type
+  TPLItem = record
+    NowPL, MaxPL, MinPL : double;
+    Run : boolean;
+    PL  : array [0..2,0..5] of double;
+    procedure Reset;
+    procedure OnPL( dPL : double; bRun : boolean = false );
+    procedure Fin;
+  end;
+
+  TAddEntry = class(TCollectionItem)
+  public
+    AddPrice : double;
+    SendOrder : boolean;
+    Index : integer;
+  end;
+
+  TAddEntrys = class(TCollection)
+  public
+    constructor Create;
+    destructor Destroy; override;
+    function New(dPrice : double; iIndex : integer) : TAddEntry;
+    function Find( dPrice : double ) : TAddEntry;
+    function GetEntryItem(iIndex: integer) : TAddEntry;
+    function GetHighItem(dPrice : double) : TAddEntry;
+  end;
+
+  TBHultOptEvent = procedure( Sender : TObject; iDiv : Integer ) of Object;
+
+  TBHultOptAxis = class(TStrategyBase)
+  private
+    FAccount : TAccount;
+    FSymbol : TSymbol;
+    FOrderSymbol : TSymbol;
+    FOtherSymbol : TSymbol;
+    FBHultData: TBHultOptData;
+    FReady : boolean;
+    FLossCut : boolean;
+    FLcTimer : TQuoteTimer;
+    FOnPositionEvent: TObjectNotifyEvent;
+    FRemSide, FRemNet, FRemQty : integer;
+    FRetryCnt : integer;
+    FLossCutCnt : integer;
+    FTermCnt : integer;
+    FHLTSignal : boolean;
+    FMinPL, FMaxPL : double;
+
+    FSuccess : boolean;
+    FScreenNumber : integer;
+    FRun : boolean;
+    FAddEntrys : TAddEntrys;
+    FHighAddEntrys : TAddEntrys;
+
+    FHighAddEntryItem : TAddEntry;
+    FAddEntryItem : TAddEntry;
+    FHighPL : double;
+
+    FFirstQty : integer;
+    FHalfEntry : boolean;
+
+    FVirtualHult : TVirtualHult;
+
+    FEntOrdList, FLiqOrdList : TOrderList;
+    FOnBHultOptEvent: TBHultOptEvent;
+    FHnVHult: THnVHultITem;
+    FPaved: boolean;
+
+    //PL  : array [0..1,0..8] of double;
+    OrgPL : array [0..1] of TPLItem;
+
+    procedure OnLcTimer( Sender : TObject );
+    procedure TradeProc(aOrder : TOrder; aPos : TPosition; iID : integer); override;
+    procedure QuoteProc(aQuote : TQuote; iDataID : integer); override;
+    function DoOrder( aSymbol : TSymbol; iQty, iSide : integer;
+      bHit  : boolean = false; bClear : boolean = false) : TOrder; overload;
+
+    procedure Reset;
+
+    procedure DoInit(aQuote : TQuote);
+    function IsRun : boolean;
+    procedure UpdateQuote(aQuote: TQuote);
+
+    procedure DoAddEntry;
+    procedure MakeAddEntry;
+    procedure SetNextAddEntry;
+
+    procedure DoHalfEntry;
+    procedure DoHalfCallPutBuy;
+    procedure DoAllEntryHalfCallPutBuy;
+
+    procedure DoLog; overload;
+    procedure DoLog( stLog : string ) ; overload;
+
+    function BHULTLossCut( iSide: integer): integer;
+    procedure PutLiqOrder(aOrder: TOrder);
+    procedure PaveOrder( aOrder : TOrder );
+    procedure DoCancels;
+    function CalOtherSymbolOrderQty( iQty : integer ): integer;
+    procedure DoOtherOrder(  aQuote : TQuote  );
+
+  public
+
+    constructor Create(aColl: TCollection; opType : TOrderSpecies);
+    Destructor  Destroy; override;
+    procedure init( aAcnt : TAccount; aSymbol : TSymbol);
+    function Start : boolean;
+    Procedure Stop(bAuto : boolean = true);
+    Procedure HalfLiqOrder;
+
+    property BHultData: TBHultOptData read FBHultData write FBHultData;
+    property LossCutCnt : integer read FLossCutCnt write FLossCutCnt;
+    property OnPositionEvent :  TObjectNotifyEvent read FOnPositionEvent write FOnPositionEvent;
+    property OrderSymbol : TSymbol read FOrderSymbol;
+    property OtherSymbol : TSymbol read FOtherSymbol;
+    property VirtualHult : TVirtualHult read FVirtualHult;
+    property HnVHult: THnVHultITem read FHnVHult write FHnVHult;
+    property Paved  : boolean read FPaved write FPaved;
+
+    property OnBHultOptEvent : TBHultOptEvent read FOnBHultOptEvent write FOnBHultOptEvent;
+  end;
+implementation
+
+uses
+  GAppEnv, GleLib
+  ;
+
+{ TBHultAxis }
+
+constructor TBHultOptAxis.Create(aColl: TCollection; opType: TOrderSpecies);
+begin
+  inherited Create(aColl, opType, stBHultOpt, true);
+  FScreenNumber := Number;
+  FLcTimer := gEnv.Engine.QuoteBroker.Timers.New;
+  FLcTimer.Enabled := false;
+  FLcTimer.Interval:= 1000;
+  FLcTimer.OnTimer := OnLcTimer;
+  FAddEntrys := TAddEntrys.Create;
+  FHighAddEntrys := TAddEntrys.Create;
+
+  FLiqOrdList := TOrderList.Create;
+  FEntOrdList := TOrderList.Create;
+  Reset;
+end;
+
+destructor TBHultOptAxis.Destroy;
+begin
+  FLcTimer.Enabled := false;
+  gEnv.Engine.QuoteBroker.Timers.DeleteTimer( FLcTimer);
+
+  FEntOrdList.Free;
+  FLiqOrdList.Free;
+  FAddEntrys.Free;
+  FHighAddEntrys.Free;
+  inherited;
+end;
+
+procedure TBHultOptAxis.DoAddEntry;
+var
+  iSide : integer;
+  stLog : string;
+begin
+  if (FAddEntryItem = nil) or (FVirtualHult = nil) then exit;
+  if ( FVirtualHult.HultPrices.PL <= FAddEntryItem.AddPrice) and (not FAddEntryItem.SendOrder)  then
+  begin
+    iSide := 1;
+    DoOrder(FOrderSymbol, FBHultData.OrdQty , iSide, true);
+    stLog := Format('AddEntry %.0f <= %.0f', [FVirtualHult.HultPrices.PL, FAddEntryItem.AddPrice ]);
+    gEnv.EnvLog(WIN_BHULT, stLog);
+
+    SetNextAddEntry;
+
+    if FAddEntryItem <> nil then
+    begin
+      stLog := Format('NextAddEntry %.0f', [ FAddEntryItem.AddPrice ]);
+      gEnv.EnvLog(WIN_BHULT, stLog);
+    end;
+  end;
+end;
+
+procedure TBHultOptAxis.DoAllEntryHalfCallPutBuy;
+var
+  aSymbol : TSymbol;
+begin
+  //-800일때 매수  FFirstQty
+  if  not FHalfEntry then exit;
+  if FVirtualHult = nil then exit;
+  if ( FVirtualHult.HultPrices.PL <= -8000000) then
+  begin
+    aSymbol := nil;
+    DoOrder(FOrderSymbol, FFirstQty , 1, true);
+
+    if (FOrderSymbol as TOption).CallPut = 'C' then
+      GetHighSymbol(false, 0.1, FBHultData.OptPrice, aSymbol)
+    else
+      GetHighSymbol(true, 0.1, FBHultData.OptPrice, aSymbol);
+
+    if aSymbol <> nil then
+      DoOrder(aSymbol, FFirstQty , 1, true);
+    FHalfEntry := false;
+  end;
+
+end;
+
+procedure TBHultOptAxis.DoHalfCallPutBuy;
+var
+  aSymbol : TSymbol;
+begin
+  //-800일때 매수  FFirstQty
+  if  not FHalfEntry then exit;
+  if FVirtualHult = nil then exit;
+  if ( FVirtualHult.HultPrices.PL <= -8000000) then
+  begin
+    aSymbol := nil;
+    DoOrder(FOrderSymbol, FFirstQty , 1, true);
+
+    if (FOrderSymbol as TOption).CallPut = 'C' then
+      GetHighSymbol(false, 0.1, FBHultData.OptPrice, aSymbol)
+    else
+      GetHighSymbol(true, 0.1, FBHultData.OptPrice, aSymbol);
+
+    if aSymbol <> nil then
+      DoOrder(aSymbol, FFirstQty , 1, true);
+    FHalfEntry := false;
+  end;
+
+
+end;
+
+procedure TBHultOptAxis.DoHalfEntry;
+begin
+  //-800일때 매수  FFirstQty
+  if  not FHalfEntry then exit;
+  if FVirtualHult = nil then exit;
+
+  if ( FVirtualHult.HultPrices.PL <= -8000000) then
+  begin
+    DoOrder(FOrderSymbol, FFirstQty , 1, true);
+    FHalfEntry := false;
+  end;
+end;
+
+
+procedure TBHultOptAxis.DoInit(aQuote: TQuote);
+var
+  i, iIndex, idx: integer;
+  aPrice, aBase : TPriceItem2;
+  stTime, stLog : string;
+  iSide, iQty, iQty2 : integer;
+begin
+  if (aQuote.Asks[0].Price < PRICE_EPSILON) or
+     (aQuote.Bids[0].Price < PRICE_EPSILON) then
+  begin
+    Exit;
+  end;
+
+  if aQuote.FTicks.Count <= 0  then exit;
+  if FVirtualHult = nil then exit;
+
+  if Frac(FBHultData.StartTime) > Frac(GetQuoteTime) then exit;
+
+  //HLT 신호 잡아서 가자...............
+  if aQuote.AddTerm then
+  begin
+    inc(FTermCnt);
+    if FTermCnt = FBHultData.Term then
+    begin
+      stTime := FormatDateTime('hh:nn:ss.zzz', GetQuoteTime);
+      stLog := Format('DoInit %s', [stTime]);
+      gEnv.EnvLog(WIN_BHULT, stLog);
+      FTermCnt := 0;
+      // 조건 맞으면..... FHLTSignal true
+
+
+      if aQuote.Symbol.DayOpen < aQuote.Symbol.Last then
+      begin
+        if aQuote.Symbol.DayOpen + FBHultData.Band <= aQuote.Symbol.Last then
+        begin
+          FHLTSignal := true;
+          stLog := Format('DoInit O + B = %.1f <= %.1f', [aQuote.Symbol.DayOpen + FBHultData.Band, aQuote.Symbol.Last]);
+          gEnv.EnvLog(WIN_BHULT, stLog);
+          iSide := 1;
+        end else
+          FHLTSignal := false;
+      end else
+      begin
+        if aQuote.Symbol.DayOpen - FBHultData.Band >= aQuote.Symbol.Last then
+        begin
+          FHLTSignal := true;
+          stLog := Format('DoInit O - B = %.1f >= %.1f', [aQuote.Symbol.DayOpen - FBHultData.Band, aQuote.Symbol.Last]);
+          gEnv.EnvLog(WIN_BHULT, stLog);
+          iSide := -1;
+        end else
+          FHLTSignal := false;
+      end;
+    end;
+  end;
+  if not FHLTSignal then exit;
+  //////////////////////////////////////
+  if FVirtualHult.HultPrices.PL > FBHultData.HultPL * -10000  then
+  begin
+    //stLog := Format('DoInit %.0f > %0.f', [FHultPosition.LastPL - FHultPosition.GetFee, FBHultData.HultPL * -10000]);
+    //gEnv.EnvLog(WIN_BHULT, stLog);
+    exit;
+  end else
+  begin
+    iQty := abs(FVirtualHult.HultPrices.Volume Div FBHultData.QtyDiv);
+    if iQty <= 0 then exit;
+    if aQuote.Symbol.DayOpen + FBHultData.Band <= aQuote.Symbol.Last then
+      iSide := 1
+    else
+      iSide := -1;
+
+    FOrderSymbol := nil;
+    if iSide > 0 then
+      GetHighSymbol(true, 0.1, FBHultData.OptPrice, FOrderSymbol)
+    else
+      GetHighSymbol(false, 0.1, FBHultData.OptPrice, FOrderSymbol);
+
+    if FOrderSymbol = nil then
+    begin
+      stLog := Format('FOrderSymbol = nil %.2f' , [FBHultData.OptPrice]);
+      gEnv.EnvLog(WIN_BHULT, stLog);
+      exit;
+    end;
+                {
+    // 다른행사가 종목을 구한다.
+    FOtherSymbol := gEnv.Engine.SymbolCore.GetOtherOption( iSide > 0,
+        FOrderSymbol, FBHultData.UseDown );
+
+    if FOtherSymbol = nil then
+    begin
+      stLog := Format('FOtherSymbol = nil %.2f' , [FOrderSymbol.Last ]);
+      gEnv.EnvLog(WIN_BHULT, stLog);
+      exit;
+    end;
+                }
+    iSide := 1;
+    iQty := iQty * FBHultData.OrdQty;
+    if FBHultData.QtyDiv =  1 then
+      FFirstQty := iQty Div 2;
+    //주문발주....
+
+    if (DoOrder(FOrderSymbol, iQty , iSide, true) <> nil ) and  Assigned( FOnBHultOptEvent ) then
+      FOnBHultOptEvent( Self, ENT_EVENT );
+   {
+    iQty2  := CalOtherSymbolOrderQty( iQty );
+
+    if (DoOrder(FOtherSymbol, iQty2 , -iSide, true) <> nil ) and  Assigned( FOnBHultOptEvent ) then
+      FOnBHultOptEvent( Self, ENT_EVENT );
+    }
+    OrgPL[0].Run  := true;
+    OrgPL[1].Run  := true;
+
+    FReady := true;
+    stLog := Format('DoInit Start %s(%.2f), Qty = %d, %.0f <= %0.f', [FOrderSymbol.ShortCode, FOrderSymbol.Last, iQty,
+                                FVirtualHult.HultPrices.PL, FBHultData.HultPL * -10000]);
+    gEnv.EnvLog(WIN_BHULT, stLog);
+  end;
+end;
+
+
+function TBHultOptAxis.CalOtherSymbolOrderQty( iQty : integer ) : integer;
+begin
+
+  case FBHultData.OrdDiv of
+    0 : Result  := Floor( FOrderSymbol.Last * iQty / FOtherSymbol.Last )
+    else Result := iQty div FBHultData.OrdDiv
+  end;
+
+end;
+
+procedure TBHultOptAxis.DoLog(stLog: string);
+begin
+  if Account <> nil then
+    gEnv.EnvLog(WIN_BHULT, stLog, false, Account.Code);
+end;
+
+procedure TBHultOptAxis.DoLog;
+var
+  stLog, stFile : string;
+  j, i, iQty : integer;
+begin
+
+  if Account.IsLog then Exit;
+
+  Account.IsLog := true;
+
+  OrgPL[0].Fin;
+  OrgPL[1].Fin;
+
+  Account.LogStr  := Format(',%.0f, %.0f, %.0f, '+
+                             '%.0f, %.0f, %.0f, %.0f, %.0f, %.0f, ' +
+                             '%.0f, %.0f, %.0f, %.0f, %.0f, %.0f, ' +
+                             '%.0f, %.0f, %.0f, %.0f, %.0f, %.0f, ' +
+                             ',%.0f, %.0f, %.0f, '+
+                             '%.0f, %.0f, %.0f, %.0f, %.0f, %.0f, ' +
+                             '%.0f, %.0f, %.0f, %.0f, %.0f, %.0f, ' +
+                             '%.0f, %.0f, %.0f, %.0f, %.0f, %.0f, '  ,
+    [
+
+    OrgPL[0].NowPL / 1000, OrgPL[0].MaxPL / 1000 , OrgPL[0].MinPL / 1000,
+    PL[0][0],PL[0][1],PL[0][2],PL[0][3],PL[0][4],PL[0][5],
+    PL[1][0],PL[1][1],PL[1][2],PL[1][3],PL[1][4],PL[1][5],
+    PL[2][0],PL[2][1],PL[2][2],PL[2][3],PL[2][4],PL[2][5],
+
+    OrgPL[1].NowPL / 1000, OrgPL[1].MaxPL / 1000 , OrgPL[1].MinPL / 1000,
+    PL[0][0],PL[0][1],PL[0][2],PL[0][3],PL[0][4],PL[0][5],
+    PL[1][0],PL[1][1],PL[1][2],PL[1][3],PL[1][4],PL[1][5],
+    PL[2][0],PL[2][1],PL[2][2],PL[2][3],PL[2][4],PL[2][5]
+
+    ]);
+
+
+       {
+  for j := 0 to 2 - 1 do
+    for I := 0 to 8 - 1 do
+      if PL[j][i] = 0 then
+        PL[j][i]  := OrgPL[j].PL;
+
+  for j := 0 to 2 - 1 do
+    for I := 0 to 8 - 1 do
+      PL[j][i]  := PL[j][i] / 1000;
+
+  Account.LogStr  := Format(',%.0f, %.0f, %.0f, %.0f, %.0f, %.0f, '+
+    '%.0f, %.0f,%.0f, %.0f,%.0f, %.0f,%.0f, %.0f,' +
+    '%.0f, %.0f,%.0f, %.0f,%.0f, %.0f,%.0f, %.0f,', [
+    OrgPL[0].PL / 1000, OrgPL[0].MaxPL / 1000 , OrgPL[0].MinPL / 1000,
+    OrgPL[1].PL / 1000, OrgPL[1].MaxPL / 1000 , OrgPL[1].MinPL / 1000,
+
+    PL[0][0],PL[0][1],PL[0][2],PL[0][3],PL[0][4],PL[0][5],PL[0][6],PL[0][7],
+    PL[1][0],PL[1][1],PL[1][2],PL[1][3],PL[1][4],PL[1][5],PL[1][6],PL[1][7]
+
+    ]);
+       }
+{
+  if Position = nil then
+    iQty := 0
+  else
+    iQty := Position.MaxPos;
+
+  stLog := Format('%s, %d, %.0f, %.0f, %.0f, %d',
+                  [FormatDateTime('yyyy-mm-dd', GetQuoteTime), FBHultData.OrdGap,
+                    (TotPL)/1000, FMaxPL/1000, FMinPL/1000, iQty] );
+
+  stFile := Format('BanHultOpt_%s.csv', [Account.Code]);
+
+  gEnv.EnvLog(WIN_BHULT, stLog, true, stFile);
+}
+end;
+
+function TBHultOptAxis.DoOrder(aSymbol : TSymbol; iQty, iSide: integer; bHit,
+  bClear: boolean): TOrder;
+var
+  aTicket : TOrderTicket;
+  dPrice : double;
+  aQuote : TQuote;
+  idx : integer;
+
+  iMax, i : integer;
+  iCnt : integer;
+  aOrder : TOrder;
+  tgType : TPositionType;
+begin
+  Result := nil;
+  if aSymbol = nil then exit;
+  if iQty <= 0 then  Exit;
+
+  if bHit then
+  begin
+    aQuote  := aSymbol.Quote as TQuote;
+    if iSide > 0 then
+      dPrice  := TicksFromPrice( aSymbol, aQuote.Asks[0].Price, 10 )
+    else
+      dPrice  := TicksFromPrice( aSymbol, aQuote.Bids[0].Price, -10 );
+  end
+  else dPrice := aQuote.Last;
+
+  aTicket := gEnv.Engine.TradeCore.StrategyGate.GetTicket(self);
+  Result := gEnv.Engine.TradeCore.Orders.NewNormalOrderEx(gEnv.ConConfig.UserID, Account, aSymbol,
+    iQty * iSide, pcLimit, dPrice, tmGTC, aTicket);
+
+  if Result <> nil then
+  begin
+    Result.OrderSpecies := opBhultOpt;
+    gEnv.Engine.TradeBroker.Send(aTicket);
+    gEnv.EnvLog(WIN_BHULT, Format('주문 : %s', [ Result.Represent2 ]) ) ;
+    if FBHultData.PaveOrder then
+      FEntOrdList.Add( Result );
+  end;
+end;
+
+procedure TBHultOptAxis.HalfLiqOrder;
+var
+  aPos : TPosition;
+  aTicket : TOrderTicket;
+  pOrder  : TOrder;
+  iSide, iQty : integer;
+  dPrice : double;
+begin
+  aPos := gEnv.Engine.TradeCore.Positions.Find(FAccount, FOrderSymbol);
+  if aPos = nil then Exit;
+
+  if ( aPos <> nil ) and ( aPos.Volume <> 0 ) then
+  begin
+
+    try
+
+      if aPos.Volume < 0 then
+        dPrice  := TicksFromPrice( FOrderSymbol, FOrderSymbol.Last, 10 )
+      else
+        dPrice  := TicksFromPrice( FOrderSymbol, FOrderSymbol.Last, -10 );
+
+      iSide := ifThen( aPos.Volume > 0 , -1, 1 );
+      iQty  := abs( aPos.Volume ) div 2;
+
+      DoLog( Format(' Half Profit  %s %.2f, %d ', [ SideToStr( iSide ),  dPrice, iQty ]));
+
+      if ( dPrice <= 0.01 ) or ( iQty <= 0 ) then Exit;
+
+      aTicket := gEnv.Engine.TradeCore.StrategyGate.GetTicket(self);
+      pOrder  := gEnv.Engine.TradeCore.Orders.NewNormalOrderEx( gEnv.ConConfig.UserID,
+        Account, FOrderSymbol, iQty * iSide,  pcLimit, dPrice, tmGTC, aTicket );
+
+      if pOrder <> nil then
+      begin
+        pOrder.OrderSpecies := opBhultOpt;
+        gEnv.Engine.TradeBroker.Send( aTicket );
+        DoLog(  'Half Profit 주문 ' );
+      end;
+
+    except
+      DoLog( Format('Half Profit 주문 깔기 에러 Pos : %d, Avg : %.2f, Amt : %.0f', [ aPos.Volume,
+        aPos.AvgPrice, FBHultData.MidProfitAmt ] ));
+    end;
+  end;
+
+end;
+
+function TBHultOptAxis.BHULTLossCut(iSide: integer): integer;
+var
+  stLog : string;
+  aTicket : TOrderTicket;
+  aOrder : TOrder;
+  aPrice : TPriceItem2;
+  dPrice : double;
+  iQty, i : integer;
+  aPos : TPosition;
+begin
+  Result := 0;
+
+  aPos := gEnv.Engine.TradeCore.Positions.Find(FAccount, FOrderSymbol);
+  if aPos <> nil then
+  begin
+    if aPos.Volume > 0 then
+    begin
+      iSide := -1;
+      dPrice := TicksFromPrice( aPos.Symbol, aPos.Symbol.Last, 10 * iSide );
+    end else
+    begin
+      iSide := 1;
+      dPrice := TicksFromPrice( aPos.Symbol, aPos.Symbol.Last, 10 * iSide );
+    end;
+
+    iQty := abs(aPos.Volume);
+    aTicket := gEnv.Engine.TradeCore.OrderTickets.New(self);
+    aOrder := gEnv.Engine.TradeCore.Orders.NewNormalOrderEx(gEnv.ConConfig.UserID, FAccount, aPos.Symbol,
+    iQty * iSide, pcLimit, dPrice,  tmGTC, aTicket);
+
+    if aOrder <> nil then
+    begin
+      aOrder.OrderSpecies := opNormal;
+      gEnv.Engine.TradeBroker.Send(aTicket);
+
+      stLog := Format('Ban_Hult정리 %s',[aOrder.Represent2]);
+      gEnv.EnvLog(WIN_BHULT, stLog);
+    end;
+  end;
+           {
+  aPos := gEnv.Engine.TradeCore.Positions.Find(FAccount, FOtherSymbol);
+  if aPos <> nil then
+  begin
+    if aPos.Volume > 0 then
+    begin
+      iSide := -1;
+      dPrice := TicksFromPrice( aPos.Symbol, aPos.Symbol.Last, 10 * iSide );
+    end else
+    begin
+      iSide := 1;
+      dPrice := TicksFromPrice( aPos.Symbol, aPos.Symbol.Last, 10 * iSide );
+    end;
+
+    iQty := abs(aPos.Volume);
+    aTicket := gEnv.Engine.TradeCore.OrderTickets.New(self);
+    aOrder := gEnv.Engine.TradeCore.Orders.NewNormalOrderEx(gEnv.ConConfig.UserID, FAccount, aPos.Symbol,
+    iQty * iSide, pcLimit, dPrice,  tmGTC, aTicket);
+
+    if aOrder <> nil then
+    begin
+      aOrder.OrderSpecies := opNormal;
+      gEnv.Engine.TradeBroker.Send(aTicket);
+
+      stLog := Format('Ban_Hult정리 %s',[aOrder.Represent2]);
+      gEnv.EnvLog(WIN_BHULT, stLog);
+    end;
+  end;     }
+
+  {
+  for i := 0 to Positions.Count - 1 do
+  begin
+    aPos := Positions.Items[i] as TPosition;
+    if aPos.Volume <> 0 then
+    begin
+      //손절.... 해주자
+      if aPos.Volume > 0 then
+      begin
+        iSide := -1;
+        dPrice := TicksFromPrice( aPos.Symbol, aPos.Symbol.Last, 10 * iSide );
+      end else
+      begin
+        iSide := 1;
+        dPrice := TicksFromPrice( aPos.Symbol, aPos.Symbol.Last, 10 * iSide );
+      end;
+
+      iQty := abs(aPos.Volume);
+      aTicket := gEnv.Engine.TradeCore.StrategyGate.GetTicket(self);
+      aOrder := gEnv.Engine.TradeCore.Orders.NewNormalOrderEx(gEnv.ConConfig.UserID, FAccount, aPos.Symbol,
+      iQty * iSide, pcLimit, dPrice,  tmGTC, aTicket);
+
+      if aOrder <> nil then
+      begin
+        aOrder.OrderSpecies := opBHultopt;
+        gEnv.Engine.TradeBroker.Send(aTicket);
+
+        stLog := Format('Ban_Hult정리 %s',[aOrder.Represent2]);
+        gEnv.EnvLog(WIN_BHULT, stLog);
+      end;
+    end;
+  end;
+  }
+end;
+
+procedure TBHultOptAxis.init(aAcnt: TAccount; aSymbol: TSymbol);
+begin
+  inherited;
+  FSymbol := aSymbol;
+  FAccount := aAcnt;
+  Account := aAcnt;
+  Reset;
+
+end;
+
+function TBHultOptAxis.IsRun: boolean;
+begin
+  if ( not FRun ) or ( FSymbol = nil ) or ( Account = nil ) then
+    Result := false
+  else
+    Result := true;
+end;
+
+procedure TBHultOptAxis.MakeAddEntry;
+var
+  i, iCnt : integer;
+  aItem : TAddEntry;
+  dPrice, dPrice1 : double;
+begin
+  dPrice := (FBHultData.HultPL + FBHultData.AddEntry) * -10000;
+  dPrice1 := FBHultData.HultPL * -10000;
+  FHighPL := 0;
+  for i := 0 to FBHultData.AddEntryCnt - 1 do
+  begin
+    FAddEntrys.New(dPrice, i);
+    FHighAddEntrys.New(dPrice1, i);
+    dPrice := dPrice + (FBHultData.AddEntry * -10000);
+    dPrice1 := dPrice1 + (FBHultData.AddEntry * -10000);
+  end;
+
+  if FAddEntrys.Count > 0 then
+    FAddEntryItem := FAddEntrys.Items[0] as TAddEntry;
+end;
+
+procedure TBHultOptAxis.OnLcTimer(Sender: TObject);
+begin
+
+end;
+
+procedure TBHultOptAxis.QuoteProc(aQuote: TQuote; iDataID: integer);
+begin
+  if iDataID = 300 then
+  begin
+    DoLog;
+    exit;
+  end;
+
+  if not IsRun then Exit;
+  if ( FSymbol <> aQuote.Symbol ) then Exit;
+
+  if not FReady then
+    DoInit( aQuote )
+  else
+    UpdateQuote( aQuote );
+
+end;
+
+procedure TBHultOptAxis.Reset;
+var
+  I: Integer;
+  j: Integer;
+begin
+  FRun := false;
+  FReady  := false;
+  FLossCut:= false;
+  FRemSide := 0;
+  FRemNet := 0;
+  FRemQty := 0;
+  FRetryCnt := 0;
+  FLossCutCnt := 0;
+  FSuccess := false;
+  FTermCnt := 0;
+  FHLTSignal := false;
+  FAddEntrys.Clear;
+  FHighAddEntrys.Clear;
+  FAddEntryItem := nil;
+  FHighAddEntryItem := nil;
+  FOrderSymbol := nil;
+  FOtherSymbol := nil;
+  FFirstQty := 0;
+  FHalfEntry := true;
+  FLiqOrdList.Clear;
+  FEntOrdList.Clear;
+
+  FHnVHult  := nil;
+  FPaved    := false;
+                    {
+  for j := 0 to 2 - 1 do
+    for I := 0 to 8 - 1 do
+      PL[j][i] := 0;
+                     }
+  OrgPL[0].Reset;
+  OrgPL[1].Reset;
+end;
+
+procedure TBHultOptAxis.SetNextAddEntry;
+var
+  iIndex : integer;
+begin
+  if FAddEntryItem = nil then exit;
+
+  iIndex := FAddEntryItem.Index + 1;
+  if iIndex >= FAddEntrys.Count then
+    FAddEntryItem := nil
+  else
+    FAddEntryItem := FAddEntrys.Items[iIndex] as TAddEntry;
+end;
+
+function TBHultOptAxis.Start: boolean;
+begin
+  Result := false;
+  if ( FSymbol = nil ) or ( FAccount = nil ) then Exit;
+  FVirtualHult := gEnv.Engine.VirtualTrade.GetHult(FBHultData.HultGap);
+  if FVirtualHult = nil then exit;
+  FRun := true;
+  MakeAddEntry;
+  gEnv.EnvLog(WIN_BHULT, Format('BHult Start %s, %d', [FSymbol.Code, FBHultData.OrdGap]) );
+end;
+
+procedure TBHultOptAxis.Stop(bAuto : boolean);
+begin
+  FRun := false;
+  gEnv.EnvLog(WIN_BHULT, Format('BHult Stop %s, %d', [FSymbol.Code, FBHultData.OrdGap]) );
+  // 손절 넣자....
+  if bAuto then
+    BHULTLossCut(1);
+
+  DoCancels;
+end;
+
+procedure TBHultOptAxis.DoCancels;
+var
+  aOrders: TOrderItem;
+begin
+  if ( FSymbol = nil ) or ( FAccount = nil ) then Exit;
+
+  aOrders := gEnv.Engine.TradeCore.FrontOrders.Find( FAccount, FOrderSymbol );
+
+  if aOrders <> nil then
+    gEnv.Engine.TradeCore.FrontOrders.DoCancels( aOrders, 0, true );
+
+end;
+
+procedure TBHultOptAxis.TradeProc(aOrder: TOrder; aPos: TPosition; iID: integer);
+var
+  i : integer;
+begin
+
+  if not IsRun then Exit;
+  if aOrder.OrderSpecies <> opBHultOpt then exit;
+
+  if FBHultData.PaveOrder then
+    for I := 0 to FEntOrdList.Count - 1 do
+      if ( FEntOrdList.Orders[i] = aOrder ) and ( aOrder.State = osFilled ) then
+      begin
+        // 청산 주문 대놓기
+        PaveOrder( aOrder );
+        break;
+      end;
+
+  if aOrder.State in  [ osSrvRjt, osRejected, osFilled, osCanceled, osConfirmed, osFailed] then
+  begin
+    FEntOrdList.Remove( aOrder );
+    FLiqOrdList.Remove( aOrder );
+  end;
+
+  if ( FPaved ) and ( Position.Volume = 0 ) then
+    if Assigned( FOnBHultOptEvent ) then
+      FOnBHultOptEvent( Self, LIQ_EVENT );
+end;
+
+procedure TBHultOptAxis.PaveOrder(aOrder: TOrder);
+var
+  iSide , iQty: integer;
+  dPrice, dBasePrc : double;
+  I: Integer;
+  pOrder : TOrder;
+  aTicket : TOrderTicket;
+begin
+  // 전량 체결시..청산 주문을 PaveTick 간격으로 쭈욱 깐다.
+  if Position = nil then Exit;
+
+  iSide := -aOrder.Side;
+  dBasePrc  := Position.AvgPrice;
+  iQty      := abs(Position.Volume) div FBHultData.OrdQty;
+
+  if ( iQty <= 0 ) or ( dBasePrc <= 0.001 ) then
+  begin
+    DoLog( Format('PaveOrder 주문인자 이상 -> %d(%d) , %.2f', [ iQty, Position.Volume,  dBasePrc ]));
+    Exit;
+  end;
+
+  DoLog( Format('PaveOrder -> 수량 %d %.2f 부터 %d 틱마다 %s주문 %d 번 ', [
+    iQty, dBasePrc, FBHultData.PaveTick, ifThenStr( iSide > 0, '매수','매도'),FBHultdata.OrdQty ]));
+
+  for I := 0 to FBHultdata.OrdQty - 1 do
+  begin
+
+      dPrice  := TicksFromPrice( aOrder.Symbol, dBasePrc,
+        (FBHultData.PaveTick + (FBHultData.PaveTick * i )) * aOrder.Side );
+
+      if  dPrice <= 0.001  then
+      begin
+        DoLog( Format('%d.th PaveOrder 주문가격 이상  %.2f', [ i, dPrice ]));
+        break;
+      end;
+
+      aTicket := gEnv.Engine.TradeCore.StrategyGate.GetTicket(self);
+      pOrder  := gEnv.Engine.TradeCore.Orders.NewNormalOrderEx( gEnv.ConConfig.UserID, Account, aOrder.Symbol, iQty * iSide,
+        pcLimit, dPrice, tmGTC, aTicket );
+
+      if pOrder <> nil then
+      begin
+        pOrder.OrderSpecies := opBhultOpt;
+        gEnv.Engine.TradeBroker.Send( aTicket );
+        DoLog( Format('Pave Order %d -> %s %.2f %d ', [ i,
+          ifThenStr( pOrder.Side > 0, '매수', '매도'),  pOrder.Price, pOrder.OrderQty ] )  );
+        FLiqOrdList.Add( pOrder );
+      end;
+  end;
+
+  if FBHultdata.OrdQty = FLiqOrdList.Count then
+    FPaved  := true;
+
+end;
+
+procedure TBHultOptAxis.PutLiqOrder( aOrder : TOrder );
+var
+  I, iSide, iQty: Integer;
+  aTicket : TOrderTicket;
+  pOrder : TOrder;
+  dPrice, dVal: double;
+begin
+
+  for I := FLiqOrdList.Count-1 downto 0 do
+  begin
+    pOrder  := FLiqOrdList.Orders[i];
+    if pOrder = nil then Continue;
+
+    aTicket := gEnv.Engine.TradeCore.OrderTickets.New(Self);
+    if gEnv.Engine.TradeCore.Orders.NewCancelOrder( pOrder, pOrder.ActiveQty, aTicket ) <> nil then
+    begin
+      gEnv.Engine.TradeBroker.Send( aTicket);
+      FLiqOrdList.Delete(i);
+    end;
+  end;
+
+  if ( Position <> nil ) and ( Position.Volume <> 0 ) then
+  begin
+
+    try
+      dVal :=  FBHultData.MidProfitAmt / ( Position.Volume * 50 );
+      if Position.Volume < 0 then
+        dPrice  := Floor((Position.AvgPrice + dVal) * 100.0 ) / 100.0
+      else
+        dPrice  := Ceil((Position.AvgPrice + dVal ) * 100.0 ) / 100.0;
+
+      iSide := ifThen( Position.Volume > 0 , -1, 1 );
+      iQty  := abs( Position.Volume ) div 2;
+
+      DoLog( Format(' Half Profit 주문 깔기 %s %.2f, %d ', [ SideToStr( iSide ),  dPrice, iQty ]));
+
+      if ( dPrice <= 0.01 ) or ( iQty <= 0 ) then Exit;
+
+      //aTicket := gEnv.Engine.TradeCore.OrderTickets.New(Self);
+      aTicket := gEnv.Engine.TradeCore.StrategyGate.GetTicket(self);
+      pOrder  := gEnv.Engine.TradeCore.Orders.NewNormalOrderEx( gEnv.ConConfig.UserID, Account, aOrder.Symbol, iQty * iSide,
+        pcLimit, dPrice, tmGTC, aTicket );
+
+      if pOrder <> nil then
+      begin
+        pOrder.OrderSpecies := opBhultOpt;
+        gEnv.Engine.TradeBroker.Send( aTicket );
+        DoLog(  'Half Profit 주문 깔기' );
+        FLiqOrdList.Add( pOrder );
+      end;
+
+    except
+      DoLog( Format('Half Profit 주문 깔기 에러 Pos : %d, Avg : %.2f, Amt : %.0f', [ Position.Volume,
+        Position.AvgPrice, FBHultData.MidProfitAmt ] ));
+    end;
+  end;
+end;
+
+procedure TBHultOptAxis.DoOtherOrder( aQuote : TQuote );
+var
+  iQty, iSide : integer;
+  stLog : string;
+begin
+  if aQuote.Symbol.DayOpen + FBHultData.Band <= aQuote.Symbol.Last then
+    iSide := 1
+  else
+    iSide := -1;
+
+  FOtherSymbol := gEnv.Engine.SymbolCore.GetOtherOption( iSide > 0,
+        FOrderSymbol, FBHultData.UseDown );
+
+  if FOtherSymbol = nil then
+  begin
+    stLog := Format('FOtherSymbol = nil %.2f' , [FOrderSymbol.Last ]);
+    gEnv.EnvLog(WIN_BHULT, stLog);
+    exit;
+  end;
+
+  iQty  := CalOtherSymbolOrderQty( abs(Position.Volume) );
+
+  if (DoOrder(FOtherSymbol, iQty , -iSide, true) <> nil ) and  Assigned( FOnBHultOptEvent ) then
+    FOnBHultOptEvent( Self, ENT_EVENT );
+
+  stLog := Format('Other Order Start %s(%.2f), Qty = %d, %.0f <= %0.f', [FOtherSymbol.ShortCode, FOtherSymbol.Last, iQty,
+                              FVirtualHult.HultPrices.PL, FBHultData.HultPL * -10000]);
+  gEnv.EnvLog(WIN_BHULT, stLog);
+end;
+
+procedure TBHultOptAxis.UpdateQuote(aQuote: TQuote);
+var
+  stTime, stTime1 : string;
+  stLog : string;
+  dOTE : array[0..1] of double;
+  dPL, dTmp : double;
+  dtTime : TDateTime;
+  I, j: Integer;
+begin
+  if not IsRun then Exit;
+  if FOrderSymbol = nil then Exit;
+
+  if Position = nil then Exit;
+
+  FMinPL := Min( FMinPL, Position.LastPL - Position.GetFee) ;
+  FMaxPL := Max( FMaxPL, Position.LastPL - Position.GetFee) ;
+
+  dTmp := FMaxPL  - ( Position.LastPL - Position.GetFee );
+
+  if (dTmp > ( FBHultData.MidProfitAmt * 10000 )) and ( FOtherSymbol = nil ) then
+  begin
+    DoOtherOrder( aQuote );
+  end;   
+
+  dTmp:= 0;
+  dPL :=  TotPL - Account.GetFee;
+
+  OrgPL[0].OnPL( dPL );
+  OrgPL[1].OnPL( dPL );
+
+  if ( FOrderSymbol as TOption).DaysToExp = 1 then
+  begin
+    dtTime  :=  EncodeTime( 14, 30, 0, 0 );
+    if ( Frac(GetQuoteTime) > dtTime ) then
+    begin
+      OrgPL[0].OnPL( dPL, false );
+      OrgPL[1].OnPL( dPL, false );
+      FRun := false;
+    end;
+  end
+  else begin
+
+    dtTime  :=  EncodeTime( 14, 30, 0, 0 );
+    if ( Frac(GetQuoteTime) > dtTime )  then
+    begin
+      OrgPL[1].OnPL( dPL, false);
+      OrgPL[1].Run  := false;
+    end;
+
+
+    dtTime  :=  EncodeTime( 15, 0, 0, 0 );
+    if ( Frac(GetQuoteTime) > dtTime )  then
+    begin
+      OrgPL[0].OnPL( dPL, false);
+      FRun := false;
+    end;
+  end;
+ {
+  for j := 0 to 2 - 1 do
+    for I := 0 to 8 - 1 do
+    begin
+      dTmp  := 3000000 + ( 1000000 * i );
+      if PL[j][i] = 0 then
+        if dPL < -dTmp then PL[j][i] := dPL;
+    end;
+
+
+  if ((TotPL - Account.GetFee) > 5000000) and (PL[2] = 0) then
+    PL[2] := TotPL - Account.GetFee;
+
+  if ((TotPL - Account.GetFee) > 10000000) and (PL[3] = 0) then
+    PL[3] := TotPL - Account.GetFee;
+
+  if ((TotPL - Account.GetFee) < -5000000) then
+  begin
+    if PL[2] = 0 then PL[2] := TotPL - Account.GetFee;
+    if PL[3] = 0 then PL[3] := TotPL - Account.GetFee;
+  end;
+ }
+
+
+  Exit;
+
+  stTime := FormatDateTime('hh:mm:ss.zzz', FBHultData.LiquidTime);
+  stTime1 := FormatDateTime('hh:mm:ss.zzz', GetQuoteTime);
+  if (FBHultData.UseAutoLiquid) and (Frac(FBHultData.LiquidTime) <= Frac(GetQuoteTime)) then
+  begin
+    Stop;
+    stLog := Format('청산시간 %s <= %s', [stTime, stTime1]);
+    gEnv.EnvLog(WIN_BHULT, stLog);
+
+    exit;
+  end;
+
+  Exit;
+
+  if Position <> nil then
+  begin
+    if (FBHultData.UseAllcnlNStop) and (TotPL <= FBHultData.RiskAmt * -10000) then
+    begin
+      Stop;
+      stLog := Format('일일한도 오버 %.0f', [TotPL]);
+      gEnv.EnvLog(WIN_BHULT, stLog);
+      exit;
+    end;
+
+    if (FBHultData.UseAllcnlNStop) and (TotPL >= FBHultData.ProfitAmt * 10000) then
+    //if IsMakeProfit then
+    begin
+      Stop;
+      stLog := Format('이익청산 %.0f', [TotPL]);
+      gEnv.EnvLog(WIN_BHULT, stLog);
+      exit;
+    end;
+  end;
+  // 추세 전략
+  DoAddEntry;
+
+  //양매수 전략
+  {
+  DoAddEntry;
+  DoHighAddEntry;
+   }
+
+  //절반 절반 추세
+  //DoHalfEntry;
+
+  //절반추세, 절반 양매수
+  //DoHalfCallPutBuy;
+end;
+
+{ TAddEntrys }
+
+constructor TAddEntrys.Create;
+begin
+  inherited Create(TAddEntry);
+end;
+
+destructor TAddEntrys.Destroy;
+begin
+
+  inherited;
+end;
+
+function TAddEntrys.Find(dPrice: double): TAddEntry;
+var
+  i : integer;
+  aItem : TAddEntry;
+begin
+  Result := nil;
+  for i := 0 to Count - 1 do
+  begin
+    if dPrice = aItem.AddPrice then
+    begin
+      Result := aItem;
+      break;
+    end;
+  end;
+
+end;
+
+function TAddEntrys.GetEntryItem(iIndex: integer): TAddEntry;
+begin
+  Result := nil;
+  if (iIndex < 0) or (Count <= iIndex) then exit;
+
+  Result := Items[iIndex] as TAddEntry;
+end;
+
+function TAddEntrys.GetHighItem(dPrice: double): TAddEntry;
+var
+  i, iCur : integer;
+  aItem, aItem1 : TAddEntry;
+begin
+  Result := nil;
+  for i := 0 to Count - 1 do        //현재 위치를 찾자
+  begin
+    aItem := GetEntryItem(i);
+    aItem1 := GetEntryItem(i+1);
+
+    if (aItem = nil) or (aItem1 = nil)  then
+      exit;
+
+    if (aItem.AddPrice >= dPrice) and (aItem1.AddPrice < dPrice) then
+    begin
+      iCur := i - 1;
+      break;
+    end;
+  end;
+
+
+  for i := iCur downto 0 do            //현재위치에서 아래로 주문 안나간 Item 찾기
+  begin
+    aItem := GetEntryItem(i);
+
+    if aItem <> nil then
+    begin
+      if not aItem.SendOrder then
+      begin
+        Result := aItem;
+        break;
+      end;
+    end;
+  end;
+end;
+
+function TAddEntrys.New(dPrice : double; iIndex : integer): TAddEntry;
+begin
+  Result := Find(dPrice);
+  if Result = nil then
+  begin
+    Result := Add as TAddEntry;
+    Result.AddPrice := dPrice;
+    Result.SendOrder := false;
+    Result.Index := iIndex;
+  end;
+end;
+
+{ TPLItem }
+
+procedure TPLItem.Fin;
+var
+  j , i : integer;
+begin
+  for j := 0 to 3 - 1 do
+    for I := 0 to 6 - 1 do
+      if PL[j][i] = 0 then
+        PL[j][i]  := NowPL;
+
+  for j := 0 to 3 - 1 do
+    for I := 0 to 6 - 1 do
+      PL[j][i]  := PL[j][i] / 1000;
+end;
+
+procedure TPLItem.OnPL(dPL: double; bRun: boolean);
+var
+  j,i   : integer;
+  dTmp  : double;
+begin
+  if not Run then Exit;
+  NowPL := dPL ;
+  MaxPL := Max( NowPL, MaxPL );
+  MinPL := Min( NowPL, MinPL );
+
+  // 손절
+  for j := 0 to 3 - 1 do
+    for I := 0 to 6 - 1 do
+    begin
+      dTmp  := 4000000 + ( 1000000 * j );
+      if PL[j][i] = 0 then
+        if dPL < -dTmp then PL[j][i] := dPL;
+    end;
+
+  // 이익청산
+  for j := 0 to 3 - 1 do
+    for I := 0 to 6 - 1 do
+    begin
+      dTmp  := 4000000 + ( 1000000 * i );
+      if PL[j][i] = 0 then
+        if dPL > dTmp then PL[j][i] := dPL;
+    end;
+end;
+
+procedure TPLItem.Reset;
+var
+  I: Integer;
+  j: Integer;
+begin
+  Run := false;
+  NowPL := 0;
+  MaxPL := 0;
+  MinPL := 0;
+
+  for I := 0 to 3 - 1 do
+    for j := 0 to 6 - 1 do
+      PL[i][j]  := 0;
+end;
+
+end.

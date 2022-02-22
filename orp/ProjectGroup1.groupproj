@@ -1,0 +1,54 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{8da3c842-7ffc-4820-b1a8-d71c13413c49}</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup />
+  <ItemGroup>
+    <Projects Include="..\ocx\nh\NhOcx.dproj" />
+    <Projects Include="..\ocx\vi\ViOcxPackage.dproj" />
+    <Projects Include="NHGuruApi.dproj" />
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Default.Personality</Borland.Personality>
+    <Borland.ProjectType />
+    <BorlandProject>
+<BorlandProject xmlns=""><Default.Personality></Default.Personality></BorlandProject></BorlandProject>
+  </ProjectExtensions>
+  <Target Name="NHGuruApi">
+    <MSBuild Projects="NHGuruApi.dproj" Targets="" />
+  </Target>
+  <Target Name="NHGuruApi:Clean">
+    <MSBuild Projects="NHGuruApi.dproj" Targets="Clean" />
+  </Target>
+  <Target Name="NHGuruApi:Make">
+    <MSBuild Projects="NHGuruApi.dproj" Targets="Make" />
+  </Target>
+  <Target Name="NhOcx">
+    <MSBuild Projects="..\ocx\nh\NhOcx.dproj" Targets="" />
+  </Target>
+  <Target Name="NhOcx:Clean">
+    <MSBuild Projects="..\ocx\nh\NhOcx.dproj" Targets="Clean" />
+  </Target>
+  <Target Name="NhOcx:Make">
+    <MSBuild Projects="..\ocx\nh\NhOcx.dproj" Targets="Make" />
+  </Target>
+  <Target Name="ViOcxPackage">
+    <MSBuild Projects="..\ocx\vi\ViOcxPackage.dproj" Targets="" />
+  </Target>
+  <Target Name="ViOcxPackage:Clean">
+    <MSBuild Projects="..\ocx\vi\ViOcxPackage.dproj" Targets="Clean" />
+  </Target>
+  <Target Name="ViOcxPackage:Make">
+    <MSBuild Projects="..\ocx\vi\ViOcxPackage.dproj" Targets="Make" />
+  </Target>
+  <Target Name="Build">
+    <CallTarget Targets="NHGuruApi;NhOcx;ViOcxPackage" />
+  </Target>
+  <Target Name="Clean">
+    <CallTarget Targets="NHGuruApi:Clean;NhOcx:Clean;ViOcxPackage:Clean" />
+  </Target>
+  <Target Name="Make">
+    <CallTarget Targets="NHGuruApi:Make;NhOcx:Make;ViOcxPackage:Make" />
+  </Target>
+  <Import Condition="Exists('$(MSBuildBinPath)\Borland.Group.Targets')" Project="$(MSBuildBinPath)\Borland.Group.Targets" />
+</Project>

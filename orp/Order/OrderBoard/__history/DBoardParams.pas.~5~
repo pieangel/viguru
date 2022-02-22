@@ -1,0 +1,270 @@
+unit DBoardParams ;
+
+interface
+
+uses Windows, SysUtils, Classes, Graphics, Forms, Controls, StdCtrls,
+  Buttons, ExtCtrls, Spin, Dialogs, Math, ComCtrls, IdGlobal;
+
+const
+  clColor  = $0000FF;
+  csColor  = $993333;
+  clxColor = $FFFF33;
+  cSxColor = $0066FF;
+
+type
+  TOrientationType = ( otAuto, otAsc, otDesc );
+
+  TOrderBoardParams = record
+      // time & sales (TNS)
+    ShowTNS: Boolean;      // TNS = Time & Sales,  ShowTNS: Boolean;   // 종목체결 표시
+    TNSOnLeft: Boolean;    // Side
+    TNSPosition : Integer;
+
+    OrdHigh, OrdWid : integer;
+
+  end;
+
+  TBoardParamDialog = class(TForm)
+    ButtonOK: TButton;
+    BtnCancel: TButton;
+    GroupBox1: TGroupBox;
+    CheckBoxShowTNS: TCheckBox;
+    CheckBoxUseTNSVolumeFilter: TCheckBox;
+    EditTNSVolumeThreshold: TEdit;
+    EditTNSRowCount: TEdit;
+    GroupBox2: TGroupBox;
+    CheckBoxShowOrderColumn: TCheckBox;
+    cbStopOrder: TCheckBox;
+    CheckBoxMergeQuoteColumns: TCheckBox;
+    RadioButtonTNSRight: TRadioButton;
+    RadioButtonTNSLeft: TRadioButton;
+    Label1: TLabel;
+    Label2: TLabel;
+    Label3: TLabel;
+    Label4: TLabel;
+    Label5: TLabel;
+    RadioButtonMergedQuoteLeft: TRadioButton;
+    RadioButtonMergedQuoteRight: TRadioButton;
+    GroupBox4: TGroupBox;
+    AccumulFillBar: TCheckBox;
+    Label6: TLabel;
+    EditTNSPosition: TEdit;
+    CheckBoxEnterOrdered: TCheckBox;
+    LpVolumeColumn: TCheckBox;
+    rgOrientation: TRadioGroup;
+    GroupBox3: TGroupBox;
+    Label7: TLabel;
+    Label8: TLabel;
+    cbOrder: TCheckBox;
+    edtFillter: TEdit;
+    CheckBoxApplyToAll: TCheckBox;
+    CheckBoxSaveAsDefault: TCheckBox;
+    Label9: TLabel;
+    edtOrderQty: TEdit;
+    Label10: TLabel;
+    Label11: TLabel;
+    edtOrderHoga: TEdit;
+    Label12: TLabel;
+    Label13: TLabel;
+    rdOrderLeft: TRadioButton;
+    rdOrderRight: TRadioButton;
+    GroupBox5: TGroupBox;
+    cbForceDist: TCheckBox;
+    Label14: TLabel;
+    rdForceLeft: TRadioButton;
+    rdForceRight: TRadioButton;
+    Label15: TLabel;
+    edtForceFillter: TEdit;
+    Label16: TLabel;
+    Label17: TLabel;
+    Label18: TLabel;
+    Label19: TLabel;
+    cbAccumulFills: TCheckBox;
+    rdAccumulLeft: TRadioButton;
+    rdAccumulRight: TRadioButton;
+    edtAccumulHoga: TEdit;
+    cbForceSum: TCheckBox;
+    edtSumSec: TEdit;
+    Label20: TLabel;
+    Label21: TLabel;
+    GroupBox6: TGroupBox;
+    lColor: TShape;
+    ButtonColor: TSpeedButton;
+    Label22: TLabel;
+    Label23: TLabel;
+    lxColor: TShape;
+    SpeedButton1: TSpeedButton;
+    SpeedButton2: TSpeedButton;
+    lcColor: TShape;
+    Label24: TLabel;
+    SpeedButton3: TSpeedButton;
+    SpeedButton4: TSpeedButton;
+    SpeedButton5: TSpeedButton;
+    sColor: TShape;
+    sxColor: TShape;
+    scColor: TShape;
+    Label25: TLabel;
+    Label26: TLabel;
+    Label27: TLabel;
+    cbDefaultColor: TCheckBox;
+    ColorDialog: TColorDialog;
+    cbTrace: TCheckBox;
+    cbHideTrace: TCheckBox;
+    GroupBox7: TGroupBox;
+    cbCoolTime: TCheckBox;
+    edtCoolTime: TEdit;
+    cbMuchForce: TCheckBox;
+    edtMuchForce: TEdit;
+    Label28: TLabel;
+    edtOrdH: TLabeledEdit;
+    edtOrdW: TLabeledEdit;
+    Label29: TLabel;
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure EditNumericKeyPress(Sender: TObject; var Key: Char);
+    procedure rgOrientationClick(Sender: TObject);
+    procedure edtOrderHogaKeyPress(Sender: TObject; var Key: Char);
+    procedure ButtonColorClick(Sender: TObject);
+
+    procedure cbTraceClick(Sender: TObject);
+    procedure cbHideTraceClick(Sender: TObject);
+  private
+    function GetApplyToAll: Boolean;
+    function GetSaveAsDefault: Boolean;
+    procedure SetParams(Value: TOrderBoardParams);
+    function GetParams: TOrderBoardParams;
+  public
+    property Params: TOrderBoardParams read GetParams write SetParams;
+      // options
+    property SaveAsDefault: Boolean read GetSaveAsDefault;
+    property ApplyToAll: Boolean read GetApplyToAll;
+  end;
+
+implementation
+
+{$R *.DFM}
+
+{ TBoardParamDialog }
+
+procedure TBoardParamDialog.edtOrderHogaKeyPress(Sender: TObject;
+  var Key: Char);
+begin
+  if not (Key in ['1'..'5', #8,#13]) then
+    Key := #0;
+end;
+
+procedure TBoardParamDialog.FormClose(Sender: TObject;
+  var Action: TCloseAction);
+begin
+  Action := caHide;
+end;
+
+//----------------------------------------------------------------------< set >
+
+procedure TBoardParamDialog.SetParams(Value: TOrderBoardParams);
+begin
+  with Value do
+  begin
+      // time & sale
+    CheckBoxShowTNS.Checked := ShowTNS;
+    RadioButtonTNSLeft.Checked := TNSOnLeft;
+    RadioButtonTNSRight.Checked := not TNSOnLeft;
+
+    EditTNSPosition.Text  := IntToStr( TNSPosition );
+
+    edtOrdH.Text  := IntToStr( OrdHigh );
+    edtOrdW.Text  := IntToStr( OrdWid );
+
+  end;
+end;
+
+//----------------------------------------------------------------------< get >
+
+function TBoardParamDialog.GetParams: TOrderBoardParams;
+begin
+  with Result do
+  begin
+      // time & sale
+    ShowTNS := CheckBoxShowTNS.Checked;           // show time & sale data
+    TNSOnLeft := RadioButtonTNSLeft.Checked;   // the position of time & sale table
+    TNSPosition := StrToIntDef( EditTNSPosition.Text, 0);
+    OrdHigh := StrToIntDef( edtOrdH.Text, 16 );
+    OrdWid  := StrToIntDef( edtOrdW.Text, 58 );
+
+  end;
+end;
+
+//-------------------------------------------------------------------< misc >
+
+//
+// Contraint a numeric TEdit to accept only numeric inputs.
+//
+procedure TBoardParamDialog.ButtonColorClick(Sender: TObject);
+var
+  iTag : integer;
+begin
+  if ColorDialog.Execute then
+  begin
+    iTag  := TSpeedButton( Sender ).Tag;
+
+    case iTag of
+    0 : lColor.Brush.Color  := ColorDialog.Color;
+    1 : lxColor.Brush.Color := ColorDialog.Color;
+    2 : lcColor.Brush.Color := ColorDialog.Color;
+    3 : sColor.Brush.Color  := ColorDialog.Color;
+    4 : sxColor.Brush.Color := ColorDialog.Color;
+    5 : scColor.Brush.Color := ColorDialog.Color;
+    end;
+  end;
+end;
+
+
+procedure TBoardParamDialog.cbHideTraceClick(Sender: TObject);
+begin
+  //
+end;
+
+procedure TBoardParamDialog.cbTraceClick(Sender: TObject);
+begin        {
+  if (not cbForceDist.Checked) and (cbTrace.Checked) then
+  begin
+    ShowMessage('세력분석 표시를 체크 하세요');
+    cbTrace.Checked := false;
+    Exit;
+  end;   }
+end;
+
+procedure TBoardParamDialog.EditNumericKeyPress(Sender: TObject;
+  var Key: Char);
+begin
+  if not (Key in ['0'..'9',#8, #13]) then
+    Key := #0;
+end;
+
+
+//------------------------------------------------------------------< options >
+
+//
+// if this option is checked, the parameters set up will be saved as default
+// values for new boards.
+//
+function TBoardParamDialog.GetSaveAsDefault: Boolean;
+begin
+  Result := CheckBoxSaveAsDefault.Checked;
+end;
+
+procedure TBoardParamDialog.rgOrientationClick(Sender: TObject);
+begin
+
+end;
+
+//
+// if this option is checked, the parameters set up will be applied to all
+// the boards.
+//
+function TBoardParamDialog.GetApplyToAll: Boolean;
+begin
+  Result := CheckBoxApplyToAll.Checked;
+end;
+
+
+end.

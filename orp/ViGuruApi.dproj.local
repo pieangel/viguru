@@ -1,0 +1,9 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2022-01-19 21:22:12.270.pas,C:\Users\piean\Documents\RAD Studio\Projects\Unit1.pas=D:\DelphiProject\GuruApi_NH_20200521\orp\FOrpMain.pas</Transaction>
+    <Transaction>2022-01-19 21:22:12.270.dfm,C:\Users\piean\Documents\RAD Studio\Projects\Unit1.dfm=D:\DelphiProject\GuruApi_NH_20200521\orp\FOrpMain.dfm</Transaction>
+    <Transaction>2022-01-19 21:22:55.841.dproj,C:\Users\piean\Documents\RAD Studio\Projects\Project1.dproj=D:\DelphiProject\GuruApi_NH_20200521\orp\ViGuruApi.dproj</Transaction>
+    <Transaction>2022-01-20 18:20:33.743.pas,D:\DelphiProject\GuruApi_NH_20200521\ocx\vi\HDFCommAgentLib_TLB.pas=</Transaction>
+  </Transactions>
+</BorlandProject>

@@ -1,0 +1,93 @@
+unit Unit1;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, OleCtrls, ESApiExpLib_TLB;
+
+type
+  TForm1 = class(TForm)
+    api: TESApiExp;
+    Memo: TMemo;
+    Button1: TButton;
+    Button2: TButton;
+    Button3: TButton;
+    Button4: TButton;
+    procedure apiESExpAcctList(ASender: TObject; nListCount: Smallint;
+      const szAcctData: WideString);
+    procedure apiESExpCodeList(ASender: TObject; nListCount: Smallint;
+      const szCodeData: WideString);
+    procedure apiESExpRecvData(ASender: TObject; nTrCode: Smallint;
+      const szRecvData: WideString);
+    procedure apiESExpServerConnect(Sender: TObject);
+    procedure apiESExpServerDisConnect(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+{$R *.dfm}
+
+procedure TForm1.Button1Click(Sender: TObject);
+var
+  iRes : integer;
+  szUserID, szPasswd, szCertPasswd: WideString;
+begin
+  iRes := api.ESExpIsServerConnect;
+
+  if iRes = 0 then
+  begin
+    api.ESExpApiFilePath('C:\KrApi\_EsBin');
+    szUserID  := 'jslight7';
+    szPasswd  := 'khc6931';
+    szCertPasswd  := 'zephyro7';
+
+    iRes := api.ESExpConnectServer(szUserID, szPasswd, szCertPasswd,1);
+    memo.Lines.Add( IntToStr( iRes ) );
+  end;
+
+end;
+
+procedure TForm1.apiESExpAcctList(ASender: TObject; nListCount: Smallint;
+  const szAcctData: WideString);
+begin
+  memo.Lines.Add(
+    Format('AcctList:%d, %s', [ nListCount, szAcctData ])
+    )
+end;
+
+procedure TForm1.apiESExpCodeList(ASender: TObject; nListCount: Smallint;
+  const szCodeData: WideString);
+begin
+  memo.Lines.Add(
+    Format('CodeList:%d, %s', [ nListCount, szCodeData ])
+    )
+end;
+
+procedure TForm1.apiESExpRecvData(ASender: TObject; nTrCode: Smallint;
+  const szRecvData: WideString);
+begin
+  memo.Lines.Add(
+    Format('RecvData:%d, %s', [ nTrCode, szRecvData ])
+    )
+end;
+
+procedure TForm1.apiESExpServerConnect(Sender: TObject);
+begin
+  memo.Lines.Add('立加');
+end;
+
+procedure TForm1.apiESExpServerDisConnect(Sender: TObject);
+begin
+  memo.Lines.Add('立加谗辫');
+end;
+
+end.

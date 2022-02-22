@@ -1,0 +1,535 @@
+unit CleFormManager;
+
+interface
+
+uses
+  Classes, SysUtils,
+
+  CleAccounts, CleSymbols, CleFrontOrderIF,
+
+  CleFORMConst, CleOrders ,  CleJangBeforeManager, ClePositions, CleFORMOrderItems,
+
+  CleJangJungManager, CleJangStartManager, CleSimultaneousEnd,  CleOrderManager,
+
+  GleTypes, GleConsts
+  ;
+
+type
+
+
+
+  TFrontManager = class( TCollection )
+  private
+    FAskOrders: TList;
+    FBidOrders: TList;
+    FOrderItems: TOrderItems;
+    FSelectedItem: TOrderItem;
+    FFormMain: TObject;
+    FJangJungManager: TObject;
+
+    function GetFrontManager(i: integer): TFrontOrderIF;
+
+  public
+
+    FAccount  : TAccount;
+    FSymbol   : TSymbol;
+
+    Constructor Create;
+    Destructor  Destroy; override;
+
+    function New( jangType : TOrderTimeType ) : TFrontOrderIF;
+    function Find( jangType : TOrderTimeType ) : TFrontOrderIF;
+    procedure Del( jangType: TOrderTimeType ); overload;
+    procedure Del(aIF: TFrontOrderIF); overload;
+
+    procedure SetAccount( aAccount : TAccount );
+    procedure SetSymbol( aSymbol : TSymbol );
+    procedure SetParam( aParam : TFORMParam );
+
+    property FrontManager[ i : integer] : TFrontOrderIF read GetFrontManager;
+    property OrderItems : TOrderItems read FOrderItems write FOrderItems;
+    property SelectedItem : TOrderItem read FSelectedItem write FSelectedItem;
+
+    property FormMain : TObject read FFormMain write FFormMain;
+    property JangJungManager : TObject read FJangJungManager write FJangJungManager;
+
+    procedure DoOrder( aOrder : TOrder );
+    procedure ReSet;
+
+    // ¿œ∞˝√Îº“
+    function BatchCancel( aAccount: TAccount; aSymbol : TSymbol;
+      aCnlType : TBatchCancelType = bctAll ; dPrice : double = 0 ) : boolean;
+    function DoCancels( aItem : TOrderItem; iSide : integer ) : boolean; overload;
+    function DoCancels( aItem : TOrderItem; iSide, iCount : integer ) : boolean; overload;
+    function DoCancels( aItem : TOrderItem; iSide : integer; dPrice : double ) : boolean; overload;
+    function DoCancel( aOrder : TOrder ) : boolean;
+  end;
+
+implementation
+
+uses
+  GAppEnv, GleLib;
+
+{ TFrontManager }
+
+constructor TFrontManager.Create;
+begin
+  inherited Create( TFrontOrderIF );
+
+  FOrderItems := TOrderItems.Create;
+  SelectedItem:= nil;
+
+  FAccount := nil;
+  FSymbol  := nil;
+
+  FFormMain:= nil;
+  FJangJungManager:= nil;
+end;
+
+procedure TFrontManager.Del(jangType: TOrderTimeType);
+var
+  i : integer;
+begin
+  for i := 0 to Count - 1 do
+    if GetFrontManager(i).ManagerType = jangType then
+    begin
+      Delete(i);
+      Break;
+    end;
+end;
+
+procedure TFrontManager.Del(aIF: TFrontOrderIF);
+var
+  i : integer;
+begin
+  for i := 0 to Count - 1 do
+    if GetFrontManager(i) = aIF then
+    begin
+      Delete(i);
+      Break;
+    end;
+end;
+
+destructor TFrontManager.Destroy;
+begin
+  FOrderItems.Free;
+  inherited;
+end;
+
+function TFrontManager.DoCancel(aOrder: TOrder): boolean;
+var
+  aTicket : TOrderTicket;
+  pOrder  : TOrder;
+  stLog   : string;
+begin
+
+  Result := false;
+  if aOrder.ActiveQty <= 0 then Exit;
+
+  if aOrder.Modify then Exit;
+
+  aTicket := gEnv.Engine.TradeCore.OrderTickets.New( self );
+  pOrder  := gEnv.Engine.TradeCore.Orders.NewCancelOrder(
+    aOrder, aOrder.ActiveQty, aTicket );
+
+  if pOrder <> nil then
+  begin
+
+    gEnv.Engine.TradeBroker.Send( aTicket );
+    Result := true;
+    stLog := Format( 'Cancel Order : %s, %.2f, %d, %d ',
+      [
+        ifThenStr( pOrder.Side > 0 , 'L', 'S'),
+        aOrder.Price,
+        aOrder.ActiveQty,
+        aOrder.OrderNo
+      ]
+      );
+    gEnv.EnvLog( WIN_LOSS, stLog );
+  end ;
+
+end;
+
+function TFrontManager.DoCancels(aItem: TOrderItem; iSide,
+  iCount: integer): boolean;
+var
+  i, iSu, iCnt : integer;
+  aOrder : TOrder;
+  bRes : boolean;
+begin
+
+  Result := false;
+
+  iSu := 0;
+  iCnt:= 0;
+
+  case iSide of
+    0 :
+      if aItem.AskOrders.Count > aItem.BidOrders.Count then
+        iSu := aItem.AskOrders.Count -1
+      else
+        iSu := aItem.BidOrders.Count -1;
+    1 : iSu := aItem.BidOrders.Count;
+    -1: iSu := aItem.AskOrders.Count;
+  end;
+
+  for i := 0 to iSu do
+  begin
+    aOrder := nil;
+    bRes   := false;
+    if iSide >= 0 then begin
+      if i < aItem.BidOrders.Count then
+        aOrder  := TOrder( aItem.BidOrders.Items[i] );
+
+      if aOrder <> nil then
+        if ( not aOrder.Modify ) and
+           ( aOrder.OrderType = otNormal ) and
+           ( aOrder.ActiveQty > 0 ) then
+        begin
+          bRes := DoCancel( aOrder );
+          if bRes then
+            inc( iCnt );
+        end;
+    end;
+
+    if iSide <= 0 then begin
+      aOrder := nil;
+      bRes   := false;
+      if i < aItem.AskOrders.Count then
+        aOrder := TOrder( aItem.AskOrders.Items[i] );
+
+      if aOrder <> nil then
+        if ( not aOrder.Modify ) and
+           ( aOrder.OrderType = otNormal ) and
+           ( aOrder.ActiveQty > 0 ) then
+        begin
+          bRes := DoCancel( aOrder );
+          if bRes then
+            inc( iCnt );
+        end;
+    end;
+
+    if iCnt >= iCount then
+      break;
+  end;
+
+  if iCnt > 0 then
+    Result := true;
+
+end;
+
+function TFrontManager.DoCancels(aItem: TOrderItem; iSide: integer): boolean;
+var
+  i, iSu, iCnt : integer;
+  aOrder : TOrder;
+  bRes : boolean;
+begin
+
+  Result := false;
+
+  iSu := 0;
+  iCnt:= 0;
+
+  case iSide of
+    0 :
+      if aItem.AskOrders.Count > aItem.BidOrders.Count then
+        iSu := aItem.AskOrders.Count -1
+      else
+        iSu := aItem.BidOrders.Count -1;
+    1 : iSu := aItem.BidOrders.Count;
+    -1: iSu := aItem.AskOrders.Count;
+  end;
+
+  for i := 0 to iSu do
+  begin
+    aOrder := nil;
+    bRes   := false;
+    if iSide >= 0 then begin
+      if i < aItem.BidOrders.Count then
+        aOrder  := TOrder( aItem.BidOrders.Items[i] );
+
+      if aOrder <> nil then
+        if ( not aOrder.Modify ) and
+           ( aOrder.OrderType = otNormal ) and
+           ( aOrder.ActiveQty > 0 ) then
+        begin
+          bRes := DoCancel( aOrder );
+          if bRes then
+            inc( iCnt );
+        end;
+    end;
+
+    if iSide <= 0 then begin
+      aOrder := nil;
+      bRes   := false;
+      if i < aItem.AskOrders.Count then
+        aOrder := TOrder( aItem.AskOrders.Items[i] );
+
+      if aOrder <> nil then
+        if ( not aOrder.Modify ) and
+           ( aOrder.OrderType = otNormal ) and
+           ( aOrder.ActiveQty > 0 ) then
+        begin
+          bRes := DoCancel( aOrder );
+          if bRes then
+            inc( iCnt );
+        end;
+    end;
+
+    if iCnt >= gEnv.ConConfig.BatchCount then
+      break;
+  end;
+
+  if iCnt > 0 then
+    Result := true;
+
+end;
+
+// shift cancel
+function TFrontManager.DoCancels(aItem: TOrderItem; iSide: integer;
+  dPrice: double): boolean;
+var
+  i, iCnt : integer;
+  aOrder : TOrder;
+  bRes : boolean;
+begin
+
+  Result := false;  
+
+  iCnt:= 0;
+
+  try
+
+    if iSide = 0  then Exit;
+
+    if iSide < 0 then begin
+      for i := 0 to aItem.AskOrders.Count -1 do
+      begin
+        aOrder := nil;
+        bRes   := false;
+        aOrder  := TOrder( aItem.AskOrders.Items[i]);
+        if aOrder <> nil then
+          if (aOrder.Price  < dPrice + PRICE_EPSILON) and
+            ( not aOrder.Modify ) and
+            ( aOrder.OrderType = otNormal )  then
+          begin
+            bRes := DoCancel( aOrder );
+            if bres  then          
+              inc( iCnt );
+          end ;      
+
+        if iCnt >= gEnv.ConConfig.BatchCount then
+          break;
+      end;
+    end
+    else begin
+      for i := 0 to aItem.BidOrders.Count -1 do      
+      begin 
+        aOrder := nil;
+        bRes   := false;
+        aOrder  := TOrder( aItem.BidOrders.Items[i]);
+        if aOrder <> nil then      
+          if (aOrder.Price + PRICE_EPSILON > dPrice) and
+            ( not aOrder.Modify ) and
+            ( aOrder.OrderType = otNormal )  then
+          begin
+            bRes := DoCancel( aOrder );
+            if bres  then          
+              inc( iCnt );
+          end ;      
+
+        if iCnt >= gEnv.ConConfig.BatchCount then
+          break;
+      end;    
+    end;
+
+  finally
+    if iCnt > 0 then
+      Result := true;
+  end;  
+
+end;
+
+function TFrontManager.BatchCancel(aAccount: TAccount; aSymbol: TSymbol;
+  aCnlType: TBatchCancelType; dPrice: double): boolean;
+var
+  aItem : TOrderItem;
+  iSide : integer;
+begin
+
+  Result := false;
+
+  if ( aAccount = nil ) or ( aSymbol = nil ) then
+    Exit;
+
+  aItem := FOrderItems.Find( aAccount, aSymbol);
+  if aItem = nil then Exit;
+
+  case aCnltype of
+    bctAll: iSide := 0;
+    bctAskAll, bctAskShift: iSide := -1 ;
+    bctBidAll, bctBidShift: iSide := 1 ;
+  end;
+
+  case aCnltype of
+    bctAll,
+    bctAskAll,
+    bctBidAll: Result := DoCancels( aItem, iSide );
+    bctAskShift,
+    bctBidShift:  Result := DoCancels( aItem, iSide, dPrice );
+  end;
+
+end;
+
+procedure TFrontManager.DoOrder(aOrder: TOrder);
+var
+  aItem : TOrderItem;
+begin
+{
+  if (aOrder.Account <> FAccount) or
+   (aOrder.Symbol <> FSymbol ) then Exit;
+}
+  aItem := FOrderItems.New( aOrder.Account, aOrder.Symbol );
+  if aItem = nil then Exit;
+
+
+  if aOrder.State = osActive then
+  begin
+    if aOrder.Side = 1 then
+      aItem.BidAdd( aOrder )
+    else
+      aItem.AskAdd( aOrder );
+  end
+  else begin
+    if aOrder.Side = 1 then
+      aItem.BidOrders.Remove( aOrder )
+    else
+      aItem.AskOrders.Remove( aOrder );
+  end;
+end;
+
+function TFrontManager.Find(jangType: TOrderTimeType): TFrontOrderIF;
+var
+  i : integer;
+begin
+  Result := nil;
+  for i := 0 to Count - 1 do
+    if GetFrontManager(i).ManagerType = jangType then
+    begin
+      Result :=  GetFrontManager(i);
+      Break;
+    end;
+
+end;
+
+function TFrontManager.GetFrontManager(i: integer): TFrontOrderIF;
+begin
+  if ( i < 0 ) or ( i >= Count )  then
+    Result := nil
+  else
+    Result := Items[i] as TFrontOrderIF;
+end;
+
+
+
+function TFrontManager.New(jangType: TOrderTimeType): TFrontOrderIF;
+var
+  aIF : TFrontOrderIF;
+begin
+
+  Result := Find( jangType );
+
+  if Result = nil then
+  begin
+    case jangType of
+      ottJangBefore: Result := TJangBeforeManager.Create( Self );
+      ottJangStart:  Result := TJangStartManager.Create( Self );
+      ottJangJung, ottJangJung2:   Result := TJangJungManager.Create( Self );
+      otSimulEndJust:Result := TSimultaneousEnd.Create( Self );
+      ottOrdManager: Result := TOrderManager.Create( Self );
+    end;
+  end else
+  begin
+    case jangType of
+      ottJangJung, ottJangJung2:   Result := TJangJungManager.Create( Self );
+      ottOrdManager: Result := TOrderManager.Create( Self );
+    end;
+  end;
+
+
+
+
+  Result.ManagerType  := jangType;
+
+end;
+
+
+
+procedure TFrontManager.ReSet;
+var
+  i : integer;
+  aOrder : TOrder;
+begin
+  FBidOrders.Clear;
+  FAskOrders.Clear;
+
+  if ( FAccount = nil ) or ( FSymbol = nil ) then Exit;
+
+  for i := 0 to gEnv.Engine.TradeCore.Orders.ActiveOrders.Count - 1 do
+  begin
+    aOrder := gEnv.Engine.TradeCore.Orders.ActiveOrders[i];
+    if aOrder = nil then Continue;
+
+    if (aOrder.State = osActive)
+       and (aOrder.Account = FAccount)
+       and (aOrder.Symbol = FSymbol) then
+       DoOrder( aOrder );
+  end;
+
+end;
+
+procedure TFrontManager.SetAccount(aAccount: TAccount);
+var
+  i : integer;
+begin
+  if aAccount = nil then Exit;
+
+  FAccount := aAccount;
+
+  FSelectedItem := OrderItems.New( FAccount, FSymbol );
+
+  for i := 0 to Count - 1 do
+    GetFrontManager(i).Account  := aAccount;
+
+  //ReSet;
+end;
+
+procedure TFrontManager.SetParam(aParam: TFORMParam);
+var
+  i : integer;
+begin
+
+  FSelectedItem := OrderItems.New( FAccount, FSymbol );
+
+  for i := 0 to Count - 1 do
+    GetFrontManager(i).Param  := aParam;
+
+end;
+
+procedure TFrontManager.SetSymbol(aSymbol: TSymbol);
+var
+  i : integer;
+begin
+  if aSymbol = nil then Exit;
+  FSymbol := aSymbol;
+
+  FSelectedItem := OrderItems.New( FAccount, FSymbol );
+
+  for i := 0 to Count - 1 do
+    GetFrontManager(i).Symbol  := aSymbol;
+  //ReSet;
+end;
+
+
+
+end.

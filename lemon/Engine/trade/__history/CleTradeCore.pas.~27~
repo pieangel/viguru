@@ -1,0 +1,201 @@
+unit CleTradeCore;
+
+// Copyright(C) Eight Pines Technologies, Inc. All Rights Reserved.
+
+// Core Data Object for trades
+
+interface
+
+uses
+  Classes,
+    // lemon: data
+  CleFunds, CleAccounts, CleOrders, CleFills, ClePositions, CleTrades,
+
+  CleStopOrders,  ClePrograms,  CleFrontOrder,
+
+  CleStorage
+  ;
+
+type
+  TTradeCore = class
+  private
+    FFunds: TFunds;
+    FAccounts: TAccountList;
+      //
+    FOrderTickets: TOrderTickets;
+    FOrderResults: TOrderResults;
+    FOrders: TOrders;
+    FFills: TFills;
+    FPositions: TPositions;
+      // optional used only in US
+    FTrades: TTrades;
+    FPrograms: TPrograms;
+
+    FFrontOrders: TOrderItems;
+    FInvestors: TInvestors;
+    FInvestorPositions: TPositions;
+    FStopOrders: TStopOrders;
+    FStorage: TStorage;
+
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    property Funds: TFunds read FFunds;
+    property Accounts: TAccountList read FAccounts;
+
+    property OrderTickets: TOrderTickets read FOrderTickets;
+    property Orders: TOrders read FOrders;
+    property OrderResults: TOrderResults read FOrderResults;
+    property Fills: TFills read FFills;
+    property Positions: TPositions read FPositions;
+    property Investors: TInvestors read FInvestors;
+    property InvestorPositions: TPositions read FInvestorPositions;
+
+    property Trades: TTrades read FTrades;
+    property Programs: TPrograms read FPrograms;
+    //property TopsQuery : TTopsQuery read FTopsQuery;
+
+    property FrontOrders : TOrderItems read FFrontOrders;
+    property StopOrders  : TStopOrders read FStopOrders;
+    property Storage  : TStorage read FStorage;
+
+    procedure CheckVirAccount;
+    procedure Reset( iPos : integer; bBack : boolean );
+    procedure Clear;
+    procedure AccountPrint( stTitle : string = '' );
+
+  end;
+
+implementation
+
+uses GAppEnv, SysUtils;
+
+{ TTradeCore }
+
+procedure TTradeCore.AccountPrint;
+var
+  stData : string;
+  i, j : integer;
+  aAcnt : TAccount;
+  aInvest : TInvestor;
+begin
+
+  stData := '';
+
+  for I := 0 to Investors.Count - 1 do
+  begin
+    aInvest := Investors.Investor[i];
+
+    if aInvest <> nil  then
+      for j := 0 to aInvest.Accounts.Count - 1 do
+      begin
+        aAcnt := aInvest.Accounts.Accounts[j];
+        if ( aAcnt = nil ) or ( not aAcnt.IsLog ) then
+          Continue;
+        stData  := stData + aAcnt.LogStr;
+      {
+
+        stData := stData + Format(',%.0f, %.0f, %.0f, %s, %s,', [
+          aAcnt.PL2, aAcnt.Data3, aAcnt.Data4,
+          FormatDateTime('hh:nn:ss', aAcnt.MaxTime2 ), FormatDateTime('hh:nn:ss', aAcnt.MinTime2 ) ] );
+
+        stData := stData + Format(',%.0f, %.0f, %.0f, %s, %s,', [
+          aAcnt.PL, aAcnt.MaxPL, aAcnt.MinPL,
+          FormatDateTime('hh:nn:ss', aAcnt.MaxTime ), FormatDateTime('hh:nn:ss', aAcnt.MinTime ) ] );
+          }
+      end;
+  end;
+
+  if stData <> '' then
+  begin
+    stData  := FormatDateTime('yy-mm-dd', gEnv.AppDate ) + stData;
+    if stTitle = '' then
+      stTitle :=  'Trade_Data'+ FormatDateTime('yyyy-mm-dd', date );
+    gEnv.EnvLog( WIN_TEST, stData, true, stTitle +'.csv');
+  end;
+end;
+
+procedure TTradeCore.CheckVirAccount;
+begin
+  //
+end;
+
+procedure TTradeCore.Clear;
+begin
+  FOrderTickets.Clear;
+  FOrderResults.Clear;
+  FOrders.Clear;
+  FFills.Clear;
+  FPositions.Clear;
+
+  FFrontOrders.Clear;
+  FInvestorPositions.Clear;
+  FInvestors.Reset;
+  FStopOrders.Clear;
+end;
+
+constructor TTradeCore.Create;
+begin
+    // group 1
+  FFunds := TFunds.Create;
+
+  FInvestors  := TInvestors.Create;
+  FAccounts:= TAccountList.Create;
+
+  FInvestorPositions:= TPositions.Create;
+    // group 2
+  FOrderTickets := TOrderTickets.Create;
+  FOrderResults := TOrderResults.Create;
+  FOrders := TOrders.Create;
+
+    // group 3
+  FFills := TFills.Create;
+  FPositions := TPositions.Create;
+
+    // group 4, optional used only in US
+  FTrades := TTrades.Create;
+  FPrograms := TPrograms.Create;
+
+    //
+  FFrontOrders:= TOrderItems.Create;
+  FStopOrders := TStopOrders.Create;
+  FStorage    := TStorage.Create;
+end;
+
+destructor TTradeCore.Destroy;
+begin
+  FStorage.Free;
+
+    // group 4
+  FPrograms.Free;
+  FTrades.Free;
+  FStopOrders.Free;
+
+    // group 3
+  FOrders.Free;
+  FOrderResults.Free;
+  FOrderTickets.Free;
+
+    // group 2
+  FFills.Free;
+  FPositions.Free;
+  FInvestorPositions.Free;
+
+    // group 1
+  FInvestors.Free;
+  FAccounts.Free;
+  FFunds.Free;
+  FFrontOrders.Free;
+
+  inherited;
+end;
+
+procedure TTradeCore.Reset(iPos: integer; bBack : boolean);
+begin
+
+end;
+
+
+
+end.

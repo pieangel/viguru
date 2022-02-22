@@ -1,0 +1,46 @@
+unit CleConsumerIndex;
+
+interface
+
+uses
+  Classes,
+  CleInvestorData;
+
+type
+  TConsumerIndex = class
+  private
+
+    FInvestorDatas : TInvestorDatas;
+
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property InvestorDatas : TInvestorDatas read FInvestorDatas;
+
+    procedure Reset;
+  end;
+
+
+
+implementation
+
+{ TConsumerIndex }
+
+constructor TConsumerIndex.Create;
+begin
+  FInvestorDatas := TInvestorDatas.Create;
+end;
+
+destructor TConsumerIndex.Destroy;
+begin
+  FInvestorDatas.Free;
+  inherited;
+end;
+
+procedure TConsumerIndex.Reset;
+begin
+  FInvestorDatas.Free;
+  FInvestorDatas := TInvestorDatas.Create;
+end;
+
+end.

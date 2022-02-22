@@ -1,0 +1,824 @@
+unit CleKrxSymbolMySQLLoader;
+
+interface
+
+uses
+  Classes, SysUtils, Dialogs, Math, ADODB,  Forms,  DateUtils,
+
+    // lemon: common
+  GleTypes,  GleConsts,
+    // lemon: utils
+  CleMySQLConnector, CleParsers,
+    // lemon: data
+  CleMarketSpecs, CleSymbols,
+    // lemon: KRX
+  CleKrxSymbols
+    // simulation
+  ;
+
+const
+  DBLoadCount = 400;
+
+type
+  TKRXSymbolMySQLLoader = class
+  private
+    FConnector: TMySQLConnector;
+
+    FParser: TParser;
+    FRecords: TStringList;
+    FCodes: TStringList;
+
+    FOnLog: TTextNotifyEvent;
+
+    procedure DoLog(stLog: String);
+
+  public
+    constructor Create(aConnector: TMySQLConnector);
+    destructor Destroy; override;
+
+      // register fixed information
+    procedure SetSpecs;
+    procedure AddFixedSymbols;
+
+    function MasterFileLoad( stFile : string ) : boolean;
+    // pv4
+    procedure ImportMasterFromFilepv4( stData : string; dtDate : TDateTime );
+    procedure ImportMasterFromFileFOpv4( stData : string; dtDate : TDateTime );
+    procedure ImportMasterFromFileCommodity( stData : string; dtDate : TDateTime );
+
+    // api
+    procedure ImportMasterFromKrApi( stFullCode, stShortCode,  stIndex, stName, stDecimal : string ); overload;
+    procedure ImportMasterFromKrApi( stData : string ); overload;
+
+    procedure ImportDetailMasterFromApi( stData : string );
+    procedure ImportSymbolListFromApi( iCount: integer; stData : string );
+
+
+
+      // properties
+    property OnLog: TTextNotifyEvent read FOnLog write FOnLog;
+  end;
+
+implementation
+
+uses GAppEnv, GleLib, NextGenKospiPacket,CleMarkets, Ticks, CleFQN, GAppConsts,
+CleQuoteBroker, ApiPacket;
+
+{ TKRXSymbolMySQLLoader }
+
+constructor TKRXSymbolMySQLLoader.Create( aConnector: TMySQLConnector);
+begin
+
+  FConnector := aConnector;
+     // create objects
+  FParser := TParser.Create([',']);
+  FRecords := TStringList.Create;
+  FCodes := TStringList.Create;
+  FCodes.Sorted := True;
+end;
+
+destructor TKRXSymbolMySQLLoader.Destroy;
+begin
+
+  FRecords.Free;
+  FParser.Free;
+  FCodes.Free;
+
+  inherited;
+end;
+
+procedure TKRXSymbolMySQLLoader.DoLog(stLog: String);
+begin
+  if Assigned(FOnLog) then
+    FOnLog(Self, 'KRX MySQL Symbol Loader: ' + stLog);
+end;
+
+//---------------------------------------------------------------< fixed info >
+
+// register market specification using the information
+// in the unit CleKRXSymbols
+//
+
+
+
+procedure TKRXSymbolMySQLLoader.SetSpecs;
+const
+
+  SEQ    =  0;  // 순번 ,
+  PMCODE =  1;  // 품목코드,
+  PMNAME =  2;  // 품목명,
+  EXCHG  =  3;  // 거래소,
+  SEC    =  4;  // 품목구분
+  COUNTRY=  5;  // 국가
+  UNDERID=  6;
+
+var
+  F: TextFile;
+  stTmp, stFile, stFQN, stCode, stData: String;
+  aParser: TParser;
+  iDiv, iCnt  : integer;
+  aSpec : TMarketSpec;
+  aSymbol : TSymbol;
+  I: Integer;
+
+  function GetPMUnderCode( stITem : string ) : string;
+  var
+    iTag : integer;
+  begin
+    iTag  := StrToInt( stItem );
+
+    case iTag of
+      1 : Result := CURRENCY_CODE ;
+      2 : Result := INDEX_CODE ;
+      3 : Result := BOND_CODE ;
+      4 : Result := COMMODITY_ENERGY_CODE ;
+      5 : Result := COMMODITY_METAL_CODE ;
+      6 : Result := COMMODITY_FARM_CODE ;
+      7 : Result := COMMODITY_LIVE_CODE ;
+      9 : Result := COMMODITY_SOFT_CODE ;
+    end;
+  end;
+begin
+
+  stFile := ExtractFilePath( paramstr(0) )+'env\'+ FILE_PMITEM;
+  if not FileExists(stFile ) then Exit;
+  try
+    aParser := TParser.Create([',']);
+    AssignFile(F, stFile);
+    System.Reset(F);
+      // load
+    while not Eof(F) do
+    begin
+        // readln
+      Readln(F, stData);
+
+      iCnt  := aParser.Parse(stData);
+      if iCnt > 0 then
+      begin
+        stFQN := Format('%s.future.%s.%s', [ aParser[PMCODE], aParser[EXCHG], aParser[COUNTRY] ]);
+
+        aSpec  := gEnv.Engine.SymbolCore.Specs.Find( stFQN );
+        if aSpec = nil then
+        begin
+          with gEnv.Engine.SymbolCore.Specs.New( stFQN ) do
+          begin
+            RootCode := GetPMUnderCode( aParser[ UNDERID ]);
+            Description := aParser[PMNAME];
+            Sector := aParser[SEC];
+            Currency := CURRENCY_DOLLAR;
+            //gEnv.EnvLog( WIN_TEST, Represent);
+          end;
+        end;
+       {
+        // 기초자산 임의 등록...
+        // 기초자산 스펙 임의 등록... 구색 맞추기 용이므로..
+       }
+        stCode  := GetPMUnderCode( aParser[ UNDERID ]);
+        aSymbol := gEnv.Engine.SymbolCore.Symbols.FindCode( stCode );
+        if aSymbol = nil then
+        begin
+          iDiv := StrToInt( stCode );
+          case iDiv of
+            1 , 2 , 3 :   // 통화 , 지수, 금리 순...
+              begin
+                stFQN := Format('%s.%s.%s', [ GetPMItemMarket(aParser[UNDERID]), aParser[EXCHG], aParser[COUNTRY] ]);
+                case iDiv of
+                  1 : begin
+                          aSymbol := gEnv.Engine.SymbolCore.Currencies.New(stCode);
+                          with aSymbol do
+                          begin
+                            Spec := gEnv.Engine.SymbolCore.Specs.Find(stFQN);
+                            Name := UNDER_CURRENCY;
+                            ShortCode  :=  stCode;
+                          end;
+                      end;
+                  2 : begin
+                          aSymbol := gEnv.Engine.SymbolCore.Indexes.New(stCode);
+                          with aSymbol do
+                          begin
+                            Spec := gEnv.Engine.SymbolCore.Specs.Find(stFQN);
+                            Name := UNDER_INDEX;
+                            ShortCode  :=  stCode;
+                          end;
+                      end;
+                  3 : begin
+                          aSymbol := gEnv.Engine.SymbolCore.Bonds.New(stCode);
+                          with aSymbol do
+                          begin
+                            Spec := gEnv.Engine.SymbolCore.Specs.Find(stFQN);
+                            Name := UNDER_BOND;
+                            ShortCode  :=  stCode;
+                          end;
+                      end;
+                end;
+              end ; // case 1,2,3
+            else
+              begin
+                stFQN := Format('%s.Commodity.%s.%s', [ aParser[SEC], aParser[EXCHG], aParser[COUNTRY] ]);
+                aSymbol := gEnv.Engine.SymbolCore.Commodities.New(stCode);
+                with aSymbol do
+                begin
+                  Spec := gEnv.Engine.SymbolCore.Specs.Find( stFQN );
+                  Name := GetPMItemName( aParser[ UNDERID ] );
+                  ShortCode  :=  stCode;
+                end;
+              end;
+          end;
+        end;
+
+        if aSymbol <> nil then
+        begin
+          if aSymbol.Spec = nil then
+          begin
+            aSpec := gEnv.Engine.SymbolCore.Specs.New( stFQN );
+            with aSpec do
+            begin
+              RootCode := '';
+              Description := Format('%s %s', [ aParser[5] , aParser[SEC] ]);
+              Sector := aParser[SEC];
+              Currency := CURRENCY_DOLLAR;
+            end;
+            aSymbol.Spec := aSpec;
+          end;
+          gEnv.Engine.SymbolCore.RegisterSymbol(aSymbol);
+        end;
+      end;
+
+    end;
+  finally
+    aParser.Free;
+    CloseFile(F);
+  end;
+end;
+
+// rigister index symbols
+//
+procedure TKRXSymbolMySQLLoader.AddFixedSymbols;
+begin
+
+end;
+
+//---------------------------------------------------------------------< load >
+
+function TKRXSymbolMySQLLoader.MasterFileLoad(stFile: string): boolean;
+var
+  i : integer;
+  aFile : TStringList;
+  stData : string;
+begin
+  Result := true;
+
+  AddFixedSymbols;
+  aFile := TStringList.Create;
+  aFile.LoadFromFile(stFile);
+
+  try
+    for i := 0 to aFile.Count - 1 do
+    begin
+      stData := Copy(aFile[i], 14, Length(aFile[i]));
+
+      if stData = '' then
+        Continue;
+      ImportMasterFromFilePv4( stData, gEnv.AppDate )   ;
+    end;
+
+  finally
+  end;
+end;
+
+
+procedure TKRXSymbolMySQLLoader.ImportDetailMasterFromApi(stData: string);
+var
+  pMaster : POutSymbolInfo;
+  stCode, stLog   : string;
+  aSymbol : TSymbol;
+begin
+
+  try
+    pMaster := POutSymbolInfo(stData );
+
+    stCode  := trim(string( pMaster.FullCode ));
+    aSymbol := gEnv.Engine.SymbolCore.Symbols.FindCode( stCode );
+
+    if aSymbol <> nil then
+    begin
+      with aSymbol do
+      begin
+        PrevClose := StrToFloat( string( pMaster.PrevClose ) );
+        Last    := StrToFloat( string( pMaster.CurPrice ) );
+        Base    := PrevClose;
+        DayOpen := StrToFloat( string( pMaster.Open ) );
+        DayHigh := StrToFloat( string( pMaster.High ) );
+        DayLow  := StrToFloat( string( pMaster.Low ) );
+      end;
+    end;
+
+  except
+  end;
+
+end;
+
+procedure TKRXSymbolMySQLLoader.ImportSymbolListFromApi(iCount: integer;
+  stData: string);
+var
+  pMaster : POutSymbolLIstInfo;
+  stCode, stSub   : string;
+  aSymbol : TSymbol;
+  i : integer;
+begin
+  try
+    for I := 0 to iCount - 1 do
+    begin
+      stSub := Copy( stData, i*Len_SymbolListInfo+1 , Len_SymbolListInfo );
+      // 테스트 결과  tick size, ticv value 는 안오는걸로...
+
+      pMaster := POutSymbolLIstInfo( stSub );
+      gEnv.Engine.Api.RequestMaster(
+        trim(string(pMaster.FullCode)),
+        //trim(string(pMaster.ShortCode )),
+        trim(string(pMaster.Index)) , i
+        );
+
+      ImportMasterFromKrApi( trim(string(pMaster.FullCode)),
+          trim(string(pMaster.ShortCode)),
+          trim(string(pMaster.Index)),
+          trim(string(pMaster.Name)),
+          trim(string(pMaster.DecimalInfo))  );
+    end;
+
+    gEnv.Engine.SymbolCore.OptionPrint;
+  except
+  end;
+
+end;
+
+procedure TKRXSymbolMySQLLoader.ImportMasterFromFileCommodity(stData: string;
+  dtDate: TDateTime);
+var
+ // pMaster : PDerMasterpv4;
+  //pComm : PCommonHeader;
+  iLen : integer;
+  stUnder, stLog, stCode : string;
+  bNew  : boolean;
+  aUnder, aSymbol : TSymbol;
+  i, iMonth : integer;
+begin
+
+  {
+  iLen  := Length( stData );
+  if iLen > LenDerMasterpv4 then
+  begin
+    stLog := Format( '%s : %s  size error %d < %d', [
+      FormatDateTime( 'yyyy-mm-dd', dtDate ),
+      string( pMaster.datatype ),
+      Length( stData ) , LenDerMasterpv4
+      ]);
+    gLog.Add( lkError, 'TKRXSymbolMySQLLoader', 'ImportMasterFromFileCommodity',  stLog );
+    Exit;
+  end;
+
+  try
+    bNew := false;
+    pMaster := PDerMasterpv4( stData );
+    stUnder := string(pMaster.underlyID);
+
+    aUnder  := GetUnderlying( stUnder );
+    if aUnder = nil then Exit;
+
+    if pMaster.code[3] <> '1' then Exit;
+    stCode :=  string( pMaster.code );
+    if stCode = '999999999999' then Exit;
+
+    if Length(stCode) = 0 then Exit;
+    aSymbol := gEnv.Engine.SymbolCore.Symbols.FindCode(stCode);
+
+    if aSymbol = nil then
+    begin
+      bNew := true;
+
+      aSymbol := gEnv.Engine.SymbolCore.Futures.New(stCode);
+      if stUnder = BM3 then
+        aSymbol.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_BOND3_FUTURES)
+      else if stUnder = BMA then
+        aSymbol.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_BOND10_FUTURES)
+      else if stUnder = USD then
+        aSymbol.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_DOLLAR_FUTURES)
+      else
+        Exit;
+    end;
+
+    with aSymbol do
+    begin
+        // names
+      ShortName := Trim( string( pMaster.shortdesc ) );
+      Shortcode := string( pMaster.shortcode );
+      ShortCode := Copy( ShortCode, 2, Length( ShortCode ));
+      Name      := ShortName;
+      LongName  := ShortName;
+      EngName   := ShortName;
+        // price info
+      PrevClose := StrToInt( string( pMaster.prevclose ) ) / 100 ;
+      Base    := StrToInt( string( pMaster.baseprice) ) / 100;
+      DayOpen := Base; // updated once after open
+      DayHigh := Base; // updated during the day
+      DayLow  := Base; // updated during the day
+      Last    := PrevClose; // updated during the day
+      if Last < 0.001 then
+        Last  := Base;
+        // daily price limit
+      LimitPriceLv := StrToInt( string( pMaster.pricelimitlv));
+
+      SetLength( LimitHighArr,LimitPriceLv );
+      SetLength( LimitLowArr, LimitPriceLv );
+
+      for I := 0 to LimitPriceLv - 1 do
+      begin
+        LimitHighArr[i]  := StrToInt( string( pMaster.highlowlimit[i].highlimit )) / 100;
+        if pMaster.highlowlimit[i].signhigh = '-' then LimitHighArr[i] := -LimitHighArr[i];
+        LimitLowArr[i]   := StrToInt( string( pMaster.highlowlimit[i].lowlimit )) / 100;
+        if pMaster.highlowlimit[i].signlow = '-' then LimitLowArr[i] := -LimitLowArr[i];
+      end;
+
+      LimitHigh := LimitHighArr[LimitIndex[0]];
+      LimitLow  := LimitLowArr[LimitIndex[1]] ;
+
+      PrevHigh  := StrToInt( string( pMaster.prevhigh )) / 100;
+      PrevLow   := StrToInt( string( pMaster.prevlow )) / 100;
+      PrevOpen  := StrToInt( string( pMaster.prevopen ))/ 100;
+      //ListHigh  := StrToInt( string( pMaster  )) / 100;
+      //ListLow   := StrToInt( string( pMaster.listlow )) / 100;
+
+    end;
+
+      ////-- derivative --////
+    with aSymbol as TDerivative do
+    begin
+      Underlying := aUnder;
+        // expiration info
+      DaysToExp := StrToInt( string(pMaster.remdays) );
+      ExpDate   := dtDate + DaysToExp - 1;
+
+      iMonth := StrToInt( string( pMaster.monthcode ) );
+
+      if iMonth = 1 then
+        IsTopStep := true
+      else if iMonth = 2 then
+        IsNextStep  := true;
+                {
+      if (stDiv = FutInfo) and (IsTopStep) then
+        gEnv.Engine.SymbolCore.Future := TFuture(aSymbol)
+      else if (stDiv = MiniFutInfo) and (IsTopStep) then
+        gEnv.Engine.SymbolCore.MiniFuture := TFuture(aSymbol) ;
+               }
+               {
+      ProductID := string( pMaster.underlyID );
+      DividendRate := StrToFloat( string( pMaster.prevdividendrate )) / 1000000.0;
+      CDRate    := StrToFloat( string( pmaster.cdrate )) / 100000.0;
+
+    end;
+
+    if bNew then
+    begin
+      gEnv.Engine.SymbolCore.RegisterSymbol(aSymbol);
+    end;
+
+  except
+    ShowMessage( string( pMaster.code) );
+
+  end;
+       }
+end;
+
+procedure TKRXSymbolMySQLLoader.ImportMasterFromFileFOpv4(stData: string;
+  dtDate: TDateTime);
+var
+ // pMaster : PDerMasterpv4;
+ // pComm : PCommonHeader;
+  stFQN,  stDiv, stCode, stLog, stInfo   : string;
+  stStandard: String;
+  theKOSPI200, aSymbol, baseSymbol: TSymbol;
+  aSpec: TMarketSpec;
+  i, iLen, iMonth: Integer;
+  bNew, bSF: Boolean;
+  dtTmp : TDateTime;
+  iWeek, iWeek2 : word;
+  dTmp, dTmp2 : double;
+begin
+  {
+  pMaster := PDerMasterpv4( stData );
+  iLen  := Length( stData );
+  if iLen > LenDerMasterpv4 then
+  begin
+    stLog := Format( '%s : %s  size error %d < %d', [
+      FormatDateTime( 'yyyy-mm-dd', dtDate ),
+      string( pMaster.datatype ),
+      Length( stData ) , LenDerMasterpv4
+      ]);
+    gLog.Add( lkError, 'TKRXSymbolMySQLLoader', 'ImportMasterFromFileFOpv4',  stLog );
+    Exit;
+  end;
+
+   try
+      bNew := false;
+      pComm :=  PCommonHeader( stData );
+
+      case pComm.MarketDiv of
+        IndexDer : stDiv := string( pComm.InfoDiv );
+        else Exit;
+      end;
+
+      if pComm.InfoDiv[0] = '0' then
+        theKospi200 := gEnv.Engine.SymbolCore.Symbols.FindCode(KOSPI200_CODE)
+      else
+        theKospi200 := gEnv.Engine.SymbolCore.Symbols.FindCode(MINI_KOSPI200_CODE);
+
+      stCode :=  string( pMaster.code );
+      if stCode = '999999999999' then Exit;
+
+      if Length(stCode) = 0 then Exit;
+
+      aSymbol := gEnv.Engine.SymbolCore.Symbols.FindCode(stCode);
+      if aSymbol = nil then
+      begin
+        bNew := True;
+          // create symbol object based on the type
+        case stCode[4] of
+          // Futures
+          '1' :
+            begin
+              aSymbol := gEnv.Engine.SymbolCore.Futures.New(stCode);
+              if stDiv = FutInfo then
+                aSymbol.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_KOSPI200_FUTURES)
+              else
+                aSymbol.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_MINI_KOSPI200_FUTURES);
+            end;
+          // Options
+          '2', '3' :
+            begin
+              aSymbol := gEnv.Engine.SymbolCore.Options.New(stCode);
+              case stCode[4] of
+                '2' :
+                  begin
+                    (aSymbol as TOption).CallPut := 'C';
+                    aSymbol.OptionType  := otCall;
+                  end;
+                '3' :
+                  begin
+                    (aSymbol as TOption).CallPut := 'P';
+                    aSymbol.OptionType  := otPut;
+                  end;
+              end;
+              if stDiv = OptInfo then
+                aSymbol.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_KOSPI200_OPTION)
+              else
+                aSymbol.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_MINI_KOSPI200_OPTION);
+            end;
+          // Spread
+          '4' :
+            begin
+              aSymbol := gEnv.Engine.SymbolCore.Spreads.New(stCode);
+              (aSymbol as TSpread).FrontMonth := Copy( string( pMaster.spreadcode ) , 4,5);
+              (aSymbol as TSpread).BackMonth :=  Copy( string( pMaster.spreadcode ) , 4,5);
+
+              if stDiv = FutInfo then
+                aSymbol.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_KOSPI200_FUTURES_SPREAD)
+              else
+                aSymbol.Spec := gEnv.Engine.SymbolCore.Specs.Find(FQN_MINI_KOSPI200_FUTURES_SPREAD);  
+            end;
+          else
+            Exit;
+        end;
+      end else
+        bNew := False;
+
+      with aSymbol do
+      begin
+          // names
+        ShortName := Trim( string( pMaster.shortdesc ) );
+        Shortcode := string( pMaster.shortcode );
+        ShortCode := Copy( ShortCode, 2, Length( ShortCode ));
+        Name      := ShortName;
+        LongName  := ShortName;
+        EngName   := ShortName;
+          // price info
+        PrevClose := StrToInt( string( pMaster.prevclose ) ) / 100 ;
+        Base    := StrToInt( string( pMaster.baseprice) ) / 100;
+        DayOpen := Base; // updated once after open
+        DayHigh := Base; // updated during the day
+        DayLow  := Base; // updated during the day
+        Last    := PrevClose; // updated during the day
+        if Last < 0.001 then
+          Last  := Base;
+          // daily price limit
+        LimitPriceLv := StrToInt( string( pMaster.pricelimitlv));
+
+        SetLength( LimitHighArr,LimitPriceLv );
+        SetLength( LimitLowArr, LimitPriceLv );
+
+        for I := 0 to LimitPriceLv - 1 do
+        begin
+          LimitHighArr[i]  := StrToInt( string( pMaster.highlowlimit[i].highlimit )) / 100;
+          if pMaster.highlowlimit[i].signhigh = '-' then LimitHighArr[i] := -LimitHighArr[i];
+          LimitLowArr[i]   := StrToInt( string( pMaster.highlowlimit[i].lowlimit )) / 100;
+          if pMaster.highlowlimit[i].signlow = '-' then LimitLowArr[i] := -LimitLowArr[i];
+        end;
+
+        LimitHigh := LimitHighArr[LimitIndex[0]];
+        LimitLow  := LimitLowArr[LimitIndex[1]] ;
+
+        PrevHigh  := StrToInt( string( pMaster.prevhigh )) / 100;
+        PrevLow   := StrToInt( string( pMaster.prevlow )) / 100;
+        PrevOpen  := StrToInt( string( pMaster.prevopen ))/ 100;
+        //ListHigh  := StrToInt( string( pMaster  )) / 100;
+        //ListLow   := StrToInt( string( pMaster.listlow )) / 100;
+
+      end;
+
+        ////-- derivative --////
+      with aSymbol as TDerivative do
+      begin
+        Underlying := theKOSPI200;
+          // expiration info
+        DaysToExp := StrToInt( string(pMaster.remdays) );
+        ExpDate   := dtDate + DaysToExp - 1;
+
+        iMonth := StrToInt( string( pMaster.monthcode ) );
+
+        if iMonth = 1 then
+          IsTopStep := true
+        else if iMonth = 2 then
+          IsNextStep  := true;
+
+        if (stDiv = FutInfo) and (IsTopStep) then
+          gEnv.Engine.SymbolCore.Future := TFuture(aSymbol)
+        else if (stDiv = MiniFutInfo) and (IsTopStep) then
+          gEnv.Engine.SymbolCore.MiniFuture := TFuture(aSymbol) ;
+
+        ProductID := string( pMaster.underlyID );
+        DividendRate := StrToFloat( string( pMaster.prevdividendrate )) / 1000000.0;
+        CDRate    := StrToFloat( string( pmaster.cdrate )) / 100000.0;
+
+      end;
+        ////-- option --////
+      if aSymbol is TOption then
+      with aSymbol as TOption do
+      begin
+        StrikePrice := StrToFloat( string( pMaster.strikeprice ))/100000000.0 ;
+        //IsATM := CompareStr(FieldByName('isatm').AsString, '1') = 0;
+        //IV := FieldByName('previv').AsFloat;
+      end;
+        // register
+      if bNew then
+      begin
+        FEngine.SymbolCore.RegisterSymbol(aSymbol);
+        {
+        gEnv.EnvLog( WIN_TEST,
+          Format('상하한가 %s --> %.2f, %.2f, %.2f || %.2f, %.2f, %.2f ', [
+            aSymbol.ShortCode,
+            aSymbol.LimitHighArr[0], aSymbol.LimitHighArr[1], aSymbol.LimitHighArr[2],
+            aSymbol.LimitLowArr[0],  aSymbol.LimitLowArr[1],  aSymbol.LimitLowArr[2] ])
+          );
+          }
+          {
+      end;
+
+    except
+      ShowMessage( string( pMaster.code) );
+    end;
+  }
+end;
+
+procedure TKRXSymbolMySQLLoader.ImportMasterFromFilepv4(stData: string;
+  dtDate: TDateTime);
+  var
+ //   pMaster : PDerMasterpv4;
+    stTr : string;
+begin
+     {
+  pMaster := PDerMasterpv4( stData );
+
+  stTr  := string(pMaster.datatype);
+  if stTr = MiniK200OptMat then
+    stTr := MiniK200OptMat;
+
+  if (stTr = K200FutMat ) or
+     (stTr = K200OptMat) or
+     (stTr = MiniK200FutMat) or
+     (stTr = MiniK200OptMat)
+    then ImportMasterFromFileFOpv4( stData, dtDate)
+  else if (stTr = CommodityMat) then
+    ImportMasterFromFileCommodity( stData, dtDate);
+    }
+end;
+
+procedure TKRXSymbolMySQLLoader.ImportMasterFromKrApi(stData: string);
+var
+  vData : POutSymbolMaster;
+  stTmp, stFullCode: string;
+  aSymbol : TSymbol;
+  dTIckValue, dContractSize, dTickSize : double;
+  yy, mm, dd : word;
+begin
+
+  if Length( stData ) < Len_OutSymbolMaster then Exit;
+
+  try
+
+    vData := POutSymbolMaster( stData );
+    stFullCode  := trim(string(vData.FullCode));
+
+    aSymbol := gEnv.Engine.SymbolCore.Symbols.FindCode(stFullCode);
+    if aSymbol <> nil then
+    begin
+
+      dContractSize := StrToFloat( trim( string( vData.CtrtSize )));
+      dTickSize     := StrToFloat( trim( string( vDAta.TickSize )));
+      dTickValue    := StrToFloat( trim( string( vData.TickValue )));
+
+      aSymbol.Spec.SetPoint( dContractSize, 1);
+      aSymbol.Spec.SetTick( dTickSize, 1, aSymbol.Spec.Precision );
+
+      aSymbol.ListHigh  := StrToFloat( trim( string( vData.ListHighPrice )));
+      aSymbol.ListLow   := StrToFloat( trim( string( vData.ListLowPrice )));
+      aSymbol.Formation := StrToint( vData.DigitDiv );
+
+      with aSymbol as TDerivative do
+      begin
+        DaysToExp := StrToInt( string(vData.RemainDays) );
+        stTmp     := trim( string( vData.ExpireDate ));
+        yy := StrToINt( Copy( stTmp, 1, 4 ));
+        mm := StrToINt( Copy( stTmp, 5, 2 ));
+        dd := StrToINt( Copy( stTmp, 7, 2 ));
+        ExpDate   := EnCodeDate( yy, mm, dd );
+        {
+                                  StrToINt( Copy( stTmp, 1, 4 )),
+                                  StrToInt( Copy( stTMp, 5,2)),
+                                  STrToInt( Copy( stTMp, 8, 2)));\
+        }
+      end;
+    end;
+
+  except
+    gEnv.OnLog( SElf, Format('%d,%d,%d', [yy, mm, dd] ));
+  end;
+end;
+
+procedure TKRXSymbolMySQLLoader.ImportMasterFromKrApi(stFullCode, stShortCode,  stIndex,
+    stName, stDecimal: string);
+  var
+    bNew : boolean;
+    aUnder , aSymbol : TSymbol;
+    aSpec : TMarketSpec;
+    stPM : string;
+
+begin
+   try
+      bNew := false;
+      stPM := '';
+      if Length( stShortCode ) = 4 then
+        stPM  := Copy( stShortCode, 1, 2 )
+      else
+        stPM  := Copy( stShortCode, 1, 3 );
+
+      aSpec   := gEnv.Engine.SymbolCore.Specs.Find2( stPM );
+      if aSpec = nil then Exit;
+      aUnder  := gEnv.Engine.SymbolCore.Symbols.FindCode(aSpec.RootCode);
+      if aUnder = nil then Exit;
+
+      aSpec.Precision := StrToInt( stDecimal );
+      aSymbol := gEnv.Engine.SymbolCore.Symbols.FindCode(stFullCode);
+
+      if aSymbol = nil then
+      begin
+        bNew := true;
+        aSymbol := gEnv.Engine.SymbolCore.Futures.New(stFullCode);
+        aSymbol.Spec  := aSpec;
+      end   // if aSymbol = nil then
+      else bNew := false;
+
+      with aSymbol do
+      begin
+        Name      := stName;
+        ShortCode := stShortCode;
+        Seq       := StrToInt( stIndex );
+      end;
+
+      with aSymbol as TDerivative do
+      begin
+        Underlying := aUnder;
+      end;
+
+      if bNew then
+        gEnv.Engine.SymbolCore.RegisterSymbol(aSymbol);
+
+   except
+   end;
+
+end;
+
+
+
+
+end.
+
+

@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2013-06-18 10:43:15.967.pas,X:\Guru_1\orp\Unit1.pas=X:\Guru_1\orp\Order\FPrevHighLow.pas</Transaction>
+    <Transaction>2013-06-18 10:43:15.967.dfm,X:\Guru_1\orp\Unit1.dfm=X:\Guru_1\orp\Order\FPrevHighLow.dfm</Transaction>
+    <Transaction>2013-06-18 10:56:58.802.pas,X:\Guru_1\orp\Unit1.pas=X:\Guru_1\orp\Order\ClePrevHighLow.pas</Transaction>
+    <Transaction>2013-06-18 15:08:53.971.pas,X:\Guru_1\orp\Unit1.pas=X:\Guru_1\orp\Order\ClePrevHLSystem.pas</Transaction>
+    <Transaction>2013-09-23 08:55:45.539.pas,C:\Users\IBKS\Documents\네이트온 받은 파일\새 폴더\Guru\orp\Unit1.pas=C:\Users\IBKS\Documents\네이트온 받은 파일\새 폴더\Guru\orp\Order\Strangle\FSheepBuy.pas</Transaction>
+    <Transaction>2013-09-23 08:55:45.539.dfm,C:\Users\IBKS\Documents\네이트온 받은 파일\새 폴더\Guru\orp\Unit1.dfm=C:\Users\IBKS\Documents\네이트온 받은 파일\새 폴더\Guru\orp\Order\Strangle\FSheepBuy.dfm</Transaction>
+    <Transaction>2013-09-23 11:55:18.914.pas,C:\Users\IBKS\Documents\네이트온 받은 파일\새 폴더\Guru\orp\Unit1.pas=C:\Users\IBKS\Documents\네이트온 받은 파일\새 폴더\Guru\orp\Order\Strangle\CleSheepBuy.pas</Transaction>
+    <Transaction>2013-09-23 12:56:03.787.pas,C:\Users\IBKS\Documents\네이트온 받은 파일\새 폴더\Guru\orp\Unit1.pas=C:\Users\IBKS\Documents\네이트온 받은 파일\새 폴더\Guru\orp\Order\Strangle\CleSheepBuySystem.pas</Transaction>
+    <Transaction>2013-10-31 14:37:40.714.pas,I:\project\Guru_IBK\orp\Order\HULT\CleEatTrend.pas=</Transaction>
+    <Transaction>2013-10-31 14:37:49.761.pas,I:\project\Guru_IBK\orp\Order\HULT\UPriceAxis.pas=</Transaction>
+    <Transaction>2014-03-10 13:41:38.772.pas,D:\project\Guru_Hyundai\orp\Unit1.pas=D:\project\Guru_Hyundai\lemon\Engine\common\TOP2ServerPacket.pas</Transaction>
+    <Transaction>2014-03-14 09:17:44.929.pas,C:\project\Guru_Hyundai\orp\Unit1.pas=C:\project\Guru_Hyundai\lemon\Engine\trade\CleInvestors.pas</Transaction>
+    <Transaction>2014-03-18 11:24:30.330.pas,D:\project\Guru_Hyundai\orp\Unit1.pas=D:\project\Guru_Hyundai\orp\Order\Troika\FleRatioS.pas</Transaction>
+    <Transaction>2014-03-18 11:24:30.330.dfm,D:\project\Guru_Hyundai\orp\Unit1.dfm=D:\project\Guru_Hyundai\orp\Order\Troika\FleRatioS.dfm</Transaction>
+    <Transaction>2014-03-18 11:25:08.642.pas,D:\project\Guru_Hyundai\orp\Unit3.pas=D:\project\Guru_Hyundai\orp\Order\Troika\FleVolS.pas</Transaction>
+    <Transaction>2014-03-18 11:25:08.642.dfm,D:\project\Guru_Hyundai\orp\Unit3.dfm=D:\project\Guru_Hyundai\orp\Order\Troika\FleVolS.dfm</Transaction>
+    <Transaction>2014-03-18 16:02:02.386.pas,D:\project\Guru_Hyundai\orp\Unit1.pas=D:\project\Guru_Hyundai\orp\Order\Troika\CleRatioSTrade.pas</Transaction>
+    <Transaction>2014-03-18 16:02:32.511.pas,D:\project\Guru_Hyundai\orp\Unit1.pas=D:\project\Guru_Hyundai\orp\Order\Troika\CleVolSTrade.pas</Transaction>
+    <Transaction>2014-03-28 09:04:13.727.pas,C:\project\Guru_Hyundai\orp\Unit1.pas=C:\project\Guru_Hyundai\lemon\Engine\quote\CleQuoteFileLoad.pas</Transaction>
+    <Transaction>2014-03-28 10:47:30.247.pas,C:\project\Guru_Hyundai\orp\Unit1.pas=C:\project\Guru_Hyundai\lemon\Engine\quote\CleSimulationManager.pas</Transaction>
+    <Transaction>2014-03-28 11:20:32.514.pas,C:\project\Guru_Hyundai\lemon\Engine\quote\CleSimulationManager.pas=</Transaction>
+    <Transaction>2014-04-04 10:30:11.358.pas,C:\project\Guru_Hyundai\orp\Unit1.pas=C:\project\Guru_Hyundai\lemon\Engine\trade\FleMiniPositionList.pas</Transaction>
+    <Transaction>2014-04-04 10:30:11.358.dfm,C:\project\Guru_Hyundai\orp\Unit1.dfm=C:\project\Guru_Hyundai\lemon\Engine\trade\FleMiniPositionList.dfm</Transaction>
+    <Transaction>2014-04-18 08:53:16.070.pas,D:\project\Guru_Hyundai\orp\Unit1.pas=D:\project\Guru_Hyundai\orp\Order\HULT\FHulOptTrade.pas</Transaction>
+    <Transaction>2014-04-18 08:53:16.070.dfm,D:\project\Guru_Hyundai\orp\Unit1.dfm=D:\project\Guru_Hyundai\orp\Order\HULT\FHulOptTrade.dfm</Transaction>
+    <Transaction>2014-04-25 08:32:52.827.pas,D:\project\Guru_Hyundai\orp\Order\Troika\CleHultHedge.pas=</Transaction>
+    <Transaction>2014-04-25 08:32:53.518.pas,D:\project\Guru_Hyundai\orp\Order\Troika\FleHultHedge.pas=</Transaction>
+    <Transaction>2014-04-25 08:32:53.518.dfm,D:\project\Guru_Hyundai\orp\Order\Troika\FleHultHedge.dfm=</Transaction>
+    <Transaction>2014-04-25 08:32:53.680.pas,D:\project\Guru_Hyundai\orp\Order\Troika\FmHultHedge.pas=</Transaction>
+    <Transaction>2014-04-25 08:32:53.680.dfm,D:\project\Guru_Hyundai\orp\Order\Troika\FmHultHedge.dfm=</Transaction>
+    <Transaction>2014-05-15 15:33:08.979.pas,D:\project\Guru_Hyundai\orp\Unit1.pas=D:\project\Guru_Hyundai\orp\Order\HULT\FBHultOpt.pas</Transaction>
+    <Transaction>2014-05-15 15:33:08.979.dfm,D:\project\Guru_Hyundai\orp\Unit1.dfm=D:\project\Guru_Hyundai\orp\Order\HULT\FBHultOpt.dfm</Transaction>
+    <Transaction>2014-05-26 14:09:11.800.pas,D:\project\Guru_Hyundai\orp\Unit1.pas=D:\project\Guru_Hyundai\orp\Order\HULT\CleVirtualHult.pas</Transaction>
+    <Transaction>2014-07-14 13:56:37.159.pas,C:\NewProject\Guru\orp\Unit1.pas=C:\NewProject\Guru\orp\Order\PDT\FPDT.pas</Transaction>
+    <Transaction>2014-07-14 13:56:37.159.dfm,C:\NewProject\Guru\orp\Unit1.dfm=C:\NewProject\Guru\orp\Order\PDT\FPDT.dfm</Transaction>
+    <Transaction>2014-07-14 13:59:01.666.pas,C:\NewProject\Guru\orp\Order\PDT\FPDT.pas=</Transaction>
+    <Transaction>2014-07-14 13:59:01.666.dfm,C:\NewProject\Guru\orp\Order\PDT\FPDT.dfm=</Transaction>
+  </Transactions>
+</BorlandProject>

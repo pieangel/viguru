@@ -1,0 +1,73 @@
+unit CleUsdParam;
+
+interface
+
+type
+  TUsdH1_1Min_Param = record
+    OrdQty   : integer;
+    EntryCnt   : integer;
+    E_L, E_S : double;
+    L1_L, L1_S : double;
+    HL  : double;
+    UseTrailingStop : boolean;
+    StopMax, StopPer : integer;
+
+    Endtime : TDateTime;
+    EntTime   , EntEndtime : TDateTime;
+
+    UseTotVol : boolean;
+    UseStopLiq: boolean;
+  end;
+
+  TUsdH2_5Min_Param = record
+    OrdQty  : integer;
+    E_1, E_2 : double;
+    R_1      : double;
+    L_1, L_2 : double;
+    BongStart, BongEnd : integer;
+    StartTime , Endtime : TDateTime;
+    EntTime   , EntEndtime : TDateTime;
+    LiqStTime , LiqEndTime : TDateTime;
+    UseStopLiq: boolean;
+    UseEntFillter : boolean;
+  end;
+
+  TUs_In_123_Param = record
+    OrdQty   : integer;
+    EntryCnt   : integer;
+    UseEntFillter : boolean;
+    E_L, E_S : double;
+    L1_L, L1_S : double;
+    L2_L, L2_S : double;
+
+    UseTrailingStop : boolean;
+    UseSecondLiqCon : boolean;
+    StopMax, StopPer : integer;
+
+    Endtime : TDateTime;
+    EntTime   , EntEndtime : TDateTime;
+    UseStopLiq: boolean;
+  end;
+
+  TUs_I2_Param = record
+    OrdQty     : integer;
+    EntryCnt   : integer;
+    ChanelIdx  : integer;
+
+    Endtime : TDateTime;
+    EntTime   , EntEndtime : TDateTime;
+    // 장시작시간.
+    MKStartTime : TDateTime;
+
+    ATRLiqTime  : TDateTime;
+    CalcCnt     : integer;
+    ATRMulti    : integer;
+    TermCnt     : integer;
+
+    UseStopLiq: boolean;
+    StgIndex  : integer;
+  end;
+
+implementation
+
+end.

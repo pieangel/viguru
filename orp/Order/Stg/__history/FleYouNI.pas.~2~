@@ -1,0 +1,181 @@
+unit FleYouNI;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs,
+
+  CleSymbols, CleAccounts, ClePositions, CleQuoteBroker,
+
+  CleOrders, CleFills,
+
+  CleDistributor, ComCtrls, ExtCtrls, StdCtrls
+
+  ;
+
+type
+  TForm2 = class(TForm)
+    Panel1: TPanel;
+    cbStart: TCheckBox;
+    edtAccount: TEdit;
+    Button6: TButton;
+    edtMine: TEdit;
+    Button1: TButton;
+    Button2: TButton;
+    edtSymbol: TLabeledEdit;
+    stTxt: TStatusBar;
+    edtMultiple: TLabeledEdit;
+    ed: TLabeledEdit;
+    cbIgnore: TCheckBox;
+    procedure Button6Click(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure Button2Click(Sender: TObject);
+    procedure cbStartClick(Sender: TObject);
+  private
+    { Private declarations }
+    FMineAcnt , FTargetAcnt : TAccount;
+    FMinePos  , FTargetPos  : TPosition;
+    FSymbol : TSymbol;
+  public
+    { Public declarations }
+    procedure TradePrc(Sender, Receiver: TObject;
+      DataID: Integer; DataObj: TObject; EventID: TDistributorID);
+    procedure QuotePrc(Sender, Receiver: TObject;
+      DataID: Integer; DataObj: TObject; EventID: TDistributorID);
+  end;
+
+var
+  Form2: TForm2;
+
+implementation
+
+uses
+  GAppEnv, GleLib , GleConsts
+  ;
+
+{$R *.dfm}
+
+procedure TForm2.Button2Click(Sender: TObject);
+begin
+  if gSymbol = nil then
+    gEnv.CreateSymbolSelect;
+
+  try
+    if gSymbol.Open then
+    begin
+      if ( gSymbol.Selected <> nil ) and ( FSymbol <> gSymbol.Selected ) then
+      begin
+
+        if cbStart.Checked then
+        begin
+          ShowMessage('실행중에는 종목을 바꿀수 없음');
+        end
+        else begin
+          if FSymbol <> nil then
+            gEnv.Engine.QuoteBroker.Cancel( Self, FSymbol);
+          FSymbol := gSymbol.Selected;
+          edtSymbol.Text  := FSymbol.ShortCode;
+          gEnv.Engine.QuoteBroker.Subscribe(Self, FSymbol, QuotePrc);
+        end;
+      end;
+    end;
+  finally
+    gSymbol.Hide;
+  end
+end;
+
+procedure TForm2.Button6Click(Sender: TObject);
+begin
+  if gAccount = nil then
+    gEnv.CreateAccountSelect;
+
+  try
+    gAccount.Left := GetMousePoint.X+10;
+    gAccount.Top  := GetMousePoint.Y;
+
+    if gAccount.Open then
+    begin
+
+      if ( gAccount.Selected <> nil ) then
+      begin
+        case (Sender as TButton).Tag of
+          0 :
+            begin
+              FTargetAcnt:= TAccount( gAccount.Selected );
+              edtAccount.Text := FTargetAcnt.Name
+            end;
+          1 :
+            begin
+              FMineAcnt:= TAccount( gAccount.Selected );
+              edtMine.Text := FMineAcnt.Name
+            end;
+        end;
+      end;
+    end;
+  finally
+    gAccount.Hide;
+  end;
+end;
+
+procedure TForm2.cbStartClick(Sender: TObject);
+begin
+
+  if ( FTargetAcnt = nil ) or ( FMineAcnt = nil ) then
+  begin
+    cbStart.Checked := false;
+    Exit;
+  end;
+
+  if ( not cbIgnore.Checked ) and ( FSymbol = nil ) then
+  begin
+    cbStart.Checked := false;
+    Exit;
+  end;
+
+  if cbStart.Checked then
+  begin
+    gEnv.Engine.TradeBroker.Subscribe( Self, TradePrc );
+  end
+  else begin
+    gEnv.Engine.TradeBroker.Unsubscribe( Self );
+  end;
+end;
+
+procedure TForm2.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  Action := caFree;
+end;
+
+procedure TForm2.FormCreate(Sender: TObject);
+begin
+  FMineAcnt := nil;
+  FTargetAcnt := nil;
+  FMinePos    := nil;
+  FTargetPos  := nil;
+  FSymbol     := nil;
+end;
+
+procedure TForm2.FormDestroy(Sender: TObject);
+begin
+  gEnv.Engine.QuoteBroker.Cancel( Self );
+  gEnv.Engine.TradeBroker.Unsubscribe( Self );
+end;
+
+procedure TForm2.QuotePrc(Sender, Receiver: TObject; DataID: Integer;
+  DataObj: TObject; EventID: TDistributorID);
+begin
+  if not cbStart.Checked then Exit;
+  
+end;
+
+procedure TForm2.TradePrc(Sender, Receiver: TObject; DataID: Integer;
+  DataObj: TObject; EventID: TDistributorID);
+begin
+  if not cbStart.Checked then Exit;
+  
+end;
+
+end.

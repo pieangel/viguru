@@ -1,0 +1,90 @@
+unit DStandByVolumes;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Grids;
+
+type
+  TStandByVolumes = class(TForm)
+    StringGridVolumes: TStringGrid;
+    ButtonOK: TButton;
+    edtSec: TEdit;
+    Label1: TLabel;
+    procedure ButtonOKClick(Sender: TObject);
+    procedure StringGridVolumesKeyPress(Sender: TObject; var Key: Char);
+    procedure StringGridVolumesMouseWheelDown(Sender: TObject;
+      Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
+    procedure StringGridVolumesMouseWheelUp(Sender: TObject; Shift: TShiftState;
+      MousePos: TPoint; var Handled: Boolean);
+    procedure FormCreate(Sender: TObject);
+  private
+    procedure SaveQtyItem;
+    { Private declarations }
+  public
+    { Public declarations }
+    FillMode  : boolean;
+    procedure SetMode( bFill : boolean );
+  end;
+
+var
+  StandByVolumes: TStandByVolumes;
+
+implementation
+
+{$R *.dfm}
+
+procedure TStandByVolumes.ButtonOKClick(Sender: TObject);
+begin
+  //SaveQtyItem;
+  ModalResult := mrOK;
+end;
+
+procedure TStandByVolumes.FormCreate(Sender: TObject);
+begin
+  FillMode  := false;
+end;
+
+procedure TStandByVolumes.SaveQtyItem;
+begin
+
+end;
+
+
+procedure TStandByVolumes.SetMode(bFill: boolean);
+begin
+  FillMode  := bFill;
+
+  if FillMode then
+  begin
+    Caption := '누적체결수량';
+  end
+  else begin
+    Height  :=  151;
+    ButtonOk.Top  := 90;
+    edtSec.Visible  := false;
+    Label1.Visible  := false;
+  end;
+end;
+
+procedure TStandByVolumes.StringGridVolumesKeyPress(Sender: TObject;
+  var Key: Char);
+begin
+  if not (Key in ['0'..'9',#13]) then
+    Key := #0;
+end;
+
+procedure TStandByVolumes.StringGridVolumesMouseWheelDown(Sender: TObject;
+  Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
+begin
+  Handled := True;
+end;
+
+procedure TStandByVolumes.StringGridVolumesMouseWheelUp(Sender: TObject;
+  Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
+begin
+  Handled := True;
+end;
+
+end.

@@ -1,0 +1,58 @@
+unit CleConsumerIndex;
+
+interface
+
+uses
+  Classes,
+  VolatilityKOSPIIndex, CleParityAvg, CleInvestorData;
+
+type
+  TConsumerIndex = class
+  private
+    FVIX: TVolatilityIndex;
+    FParityAvg : TParityAvg;
+    FInvestorDatas : TInvestorDatas;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property VIX       : TVolatilityIndex read FVIX;
+    property ParityAvg : TParityAvg read FParityAvg;
+    property InvestorDatas : TInvestorDatas read FInvestorDatas;
+
+    procedure Reset;
+  end;
+
+
+
+implementation
+
+{ TConsumerIndex }
+
+constructor TConsumerIndex.Create;
+begin
+  FVIX:= TVolatilityIndex.Create;
+  FParityAvg := TParityAvg.Create;
+  FInvestorDatas := TInvestorDatas.Create;
+end;
+
+destructor TConsumerIndex.Destroy;
+begin
+  FVIX.Free;
+  FParityAvg.Free;
+  FInvestorDatas.Free;
+  inherited;
+end;
+
+procedure TConsumerIndex.Reset;
+begin
+  FVIX.Free;
+  FParityAvg.Free;
+  FInvestorDatas.Free;
+
+  FVIX:= TVolatilityIndex.Create;
+  FParityAvg := TParityAvg.Create;
+  FInvestorDatas := TInvestorDatas.Create;  
+
+end;
+
+end.
