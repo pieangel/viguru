@@ -1132,10 +1132,10 @@ begin
     // 심볼 코드 요청 시작
     asReqSymbolCode : begin//StartReqSymbolCode;
       gEnv.Engine.Api.MakeSymbolCodeReqList();
-      //FEngine.Api.QryTimer.Interval := 700;
-      //FEngine.Api.QryTimer.Enabled := true;
-      FEngine.Api.ViReqTimer.Interval := 10;
-      FEngine.Api.ViReqTimer.Enabled := true;
+      FEngine.Api.QryTimer.Interval := 10;
+      FEngine.Api.QryTimer.Enabled := true;
+      //FEngine.Api.ViReqTimer.Interval := 10;
+      //FEngine.Api.ViReqTimer.Enabled := true;
 
       aForm2:= TFrmQryTimer.Create( Self );
       try
@@ -1189,7 +1189,7 @@ begin
       gEnv.Engine.Api.MakeSymbolMasterReqList();
       for I := 0 to gEnv.Engine.Api.ViReqList.Count - 1 do begin
         aItem := gEnv.Engine.Api.ViReqList.Objects[i] as TSrvSendItem;
-        gEnv.Engine.Api.RequestViData2(aItem);
+        //gEnv.Engine.Api.RequestViData2(aItem);
         //gEnv.Engine.Api.DoRequestViData(aItem.Key, aItem.TrCode, aItem.Data, aItem.FidData, aItem.ReqType, Length(aItem.Data), '');
       end;
 

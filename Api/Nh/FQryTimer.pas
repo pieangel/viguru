@@ -84,7 +84,7 @@ begin
   end;
 
   pBar.Position := 0;
-  pBar.Max      := gEnv.Engine.Api.ViReqList.Count;
+  pBar.Max      := gEnv.Engine.Api.QryList.Count;
   lbTot.Caption := inttostr( pBar.Max );
   Timer1.Enabled := true;
   Result := (ShowModal = mrOK);
@@ -101,7 +101,7 @@ begin
 
   pBar.Position := Max( 0, pBar.Max - gEnv.Engine.Api.ViReqList.Count );
   lbNow.Caption := IntToStr( pBar.Position );
-  if gEnv.Engine.Api.ViReqList.Count = 0 then begin
+  if gEnv.Engine.Api.QryList.Count = 0 then begin
     Timer1.Enabled := false;
     ModalResult := mrOK   ;
   end;

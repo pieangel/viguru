@@ -569,7 +569,7 @@ end;
 function TApiManager.CheckRqResult(const nRqId : integer; const sCode, sMsg : WideString): integer;
 var
   i : integer;
-  aItem : TSrvSendItem;
+  strData : string;
   reqIndex, idIndex : integer;
   Key : string;
 begin
@@ -585,14 +585,10 @@ begin
   gLog.Add( lkApplication, 'TApiManager', 'CheckRqResult ', Format(' ViReqList Count = %d, Code : %s', [ ViReqList.Count, sCode ])) ;
 
   try begin
-    idIndex := FViReqIdList.IndexOf(IntToStr(nRqId));
+    idIndex := FViReqList.IndexOf(IntToStr(nRqId));
     if idIndex >= 0 then begin
-      aItem := FViReqIdList.Objects[idIndex] as TSrvSendItem;
-      reqIndex := FViReqList.IndexOf(aItem.Key);
-      if reqIndex >= 0 then begin
-        ViReqList.Delete(reqIndex);
-      end;
-      FViReqIdList.Delete(idIndex);
+      strData := FViReqList.Values[IntToStr(nRqId)];
+      FViReqList.Delete(idIndex);
     end;
   end;
   finally
@@ -631,8 +627,8 @@ begin
   end ;
   }
 
-  if (nRqId > 0) and (ViReqList.Count > 0) then
-    FViReqTimer.Enabled := true;
+  if (nRqId > 0) and (QryList.Count > 0) then
+    FQryTimer.Enabled := true;
 
   
   Result := nRqId;
@@ -1646,7 +1642,7 @@ begin
     if Result > 0  then begin
       //gEnv.EnvLog( WIN_PACKET, Format('%s 요청 성공 : %s', [ aItem.TrCode, aItem.Data]) );
       gLog.Add( lkApplication, 'TApiManager','DoRequestViData', Format('요청 성공 : nRqId = %d , TrCode = %s, Data = %s',[ Result, stTrCode, stReqData ] )  );
-      
+      FViReqList.Values[IntToStr(Result)] := stTrCode + ':' + stReqData;
     end
     else
       //gEnv.EnvLog( WIN_PACKET, Format('%s 요청 실패 : %d %s:%s', [ aItem.TrCode, Result, aItem.Data , GetViErrorMessage( Result ) ]) );
@@ -1805,13 +1801,13 @@ begin
     // 크리티컬 섹션 진입
     EnterCriticalSection(CritSect);
 
-    curIndex := FQryList.Count - 1;
+    //curIndex := FQryList.Count - 1;
 
-    //for I := FQryList.Count - 1 downto 0 do
-    //begin
+    for I := FQryList.Count - 1 downto 0 do
+    begin
 
       // 질의 함목 복사해서 가져옴
-      aItem := TSrvSendItem(  FQryList.Items[curIndex] );
+      aItem := TSrvSendItem(  FQryList.Items[i] );
       if aItem = nil then Exit;
 
      // gEnv.EnvLog( WIN_ERR, Format('start = %d [%d,%d](%d) (%s, %s) ',[ 999,
@@ -1866,11 +1862,11 @@ begin
         // 질의 종류에 따른 질의 회수를 증가 시킨다.
         // 특정 질의를 몇 번 수행 했는가를 기록한다.
         inc(FQryCount[aItem.Index]);
-        FQryList.Delete(curIndex);
+        //FQryList.Delete(i);
         aItem.Free;
         aItem := nil;
       end;
-    //end;
+    end;
 
     except
       if aItem <> nil then
@@ -1994,8 +1990,8 @@ begin
     aItem.Index   := QryIndex(DefSymbolCode);
     aItem.Size    := length( aItem.Data );
     aItem.Key     := Vi_MarketSymbol[i];
-    //FQryList.Insert(0, aItem );
-    FViReqList.AddObject(aItem.Key, aItem);
+    FQryList.Insert(0, aItem );
+    //FViReqList.AddObject(aItem.Key, aItem);
   end;
 
   for i := 0 to FQryList.Count - 1 do begin
